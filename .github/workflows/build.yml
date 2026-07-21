@@ -36,8 +36,10 @@ jobs:
           - platform: darwin-arm64
             os: macos-14
             rust_target: aarch64-apple-darwin
+          # macos-13 (Intel) is often unavailable / long-queued on GHA.
+          # Cross-compile x64 from Apple Silicon runner instead.
           - platform: darwin-x64
-            os: macos-13
+            os: macos-14
             rust_target: x86_64-apple-darwin
           - platform: windows-x64
             os: windows-latest
@@ -67,14 +69,17 @@ jobs:
           echo "Building nabooth-print-agent v$V (${{ matrix.platform }})"
 
       - uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install JS deps
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Linux WebKit deps
         if: matrix.platform == 'linux-x64'
