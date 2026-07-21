@@ -1,0 +1,37 @@
+# Dependencies / build
+node_modules/
+dist/
+dist-ssr/
+src-tauri/target/
+*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+.agent-local/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Installer outputs
+*.dmg
+*.AppImage
+*.msi
+*.exe
+!scripts/**
+
+# Local release staging
+dist/releases/
+print-agent-out/
+print-agent-dist/

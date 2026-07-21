@@ -1,0 +1,170 @@
+# Build Nabooth Print Agent installers (macOS / Windows / Linux).
+# Standalone repo — no k3s / nabooth CD.
+#
+# Triggers:
+#   1) Actions → Build → Run workflow
+#   2) git tag v0.1.0 && git push origin v0.1.0
+#
+# Download: workflow run → Artifacts
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "App version (empty = tauri.conf.json)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            os: macos-14
+            rust_target: aarch64-apple-darwin
+          - platform: darwin-x64
+            os: macos-13
+            rust_target: x86_64-apple-darwin
+          - platform: windows-x64
+            os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - platform: linux-x64
+            os: ubuntu-22.04
+            rust_target: x86_64-unknown-linux-gnu
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version label
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${{ github.event.inputs.version || '' }}" ]; then
+            V="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building nabooth-print-agent v$V (${{ matrix.platform }})"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install JS deps
+        run: pnpm install
+
+      - name: Install Linux WebKit deps
+        if: matrix.platform == 'linux-x64'
+        run: |
+          sudo apt-get update
+          # ayatana only — libappindicator3-dev conflicts on Ubuntu 22.04
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libgtk-3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: print-agent-${{ matrix.platform }}
+
+      - name: Sync package version
+        shell: bash
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          node -e "
+            const fs=require('fs');
+            const p='src-tauri/tauri.conf.json';
+            const j=JSON.parse(fs.readFileSync(p,'utf8'));
+            j.version=process.env.V;
+            fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
+            const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+            pkg.version=process.env.V;
+            fs.writeFileSync('package.json', JSON.stringify(pkg,null,2)+'\n');
+          "
+          sed -i.bak -E "s/^version = \".*\"/version = \"$V\"/" src-tauri/Cargo.toml
+          rm -f src-tauri/Cargo.toml.bak
+        env:
+          V: ${{ steps.ver.outputs.version }}
+
+      - name: Tauri build
+        run: pnpm tauri build --target ${{ matrix.rust_target }}
+
+      - name: Collect artifacts
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/out/${{ matrix.platform }}"
+          mkdir -p "$OUT"
+          shopt -s nullglob
+          files=(
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/macos/*.app
+            src-tauri/target/release/bundle/dmg/*.dmg
+            src-tauri/target/release/bundle/macos/*.app
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/appimage/*.AppImage
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+          )
+          n=0
+          for f in "${files[@]}"; do
+            [ -e "$f" ] || continue
+            if [ -d "$f" ]; then
+              base=$(basename "$f")
+              (cd "$(dirname "$f")" && zip -qry "$OUT/${base}.zip" "$base")
+              n=$((n+1))
+            else
+              cp -v "$f" "$OUT/"
+              n=$((n+1))
+            fi
+          done
+          if [ "$n" -eq 0 ]; then
+            echo "No bundle files found. Tree:"
+            find src-tauri/target -maxdepth 6 \( -name bundle -o -name '*.dmg' -o -name '*.msi' -o -name '*.AppImage' \) 2>/dev/null | head -50
+            exit 1
+          fi
+          ls -la "$OUT"
+          echo "dir=$OUT" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nabooth-print-agent-${{ steps.ver.outputs.version }}-${{ matrix.platform }}
+          path: ${{ steps.pack.outputs.dir }}
+          if-no-files-found: error
+          retention-days: 30

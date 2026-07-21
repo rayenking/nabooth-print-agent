@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nabooth Print Agent</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+  <body>
+    <main class="wrap">
+      <header>
+        <h1>Nabooth Print Agent</h1>
+        <p class="muted">USB printer bridge for booth (iPad → this PC)</p>
+      </header>
+
+      <section class="card" id="printer-card">
+        <h2>Printer</h2>
+        <label>
+          Default printer
+          <select id="printer"></select>
+        </label>
+        <label class="mode-label">
+          When booth sends a strip
+          <select id="print-mode">
+            <option value="manual">
+              Manual — open system Print dialog (recommended)
+            </option>
+            <option value="auto" disabled>
+              Auto — soon / maintenance
+            </option>
+          </select>
+        </label>
+        <div class="row wrap-btns">
+          <button id="btn-refresh-printers" type="button" class="ghost">
+            Refresh
+          </button>
+          <button id="btn-printer-settings" type="button" class="ghost">
+            Printer prefs…
+          </button>
+          <button id="btn-printer-queue" type="button" class="ghost">
+            Queue
+          </button>
+          <button id="btn-test-print" type="button" class="ghost">
+            Test Print
+          </button>
+        </div>
+        <p class="muted small">
+          <strong>Manual</strong>: strip appears below → you click Print → real
+          OS dialog (Epson media / quality / borderless).
+          <strong>Auto</strong> silent print is temporarily disabled.
+        </p>
+      </section>
+
+      <section class="card" id="login-card">
+        <h2>Connect to Nabooth</h2>
+        <label id="api-url-field" class="hidden">
+          API URL
+          <span class="muted small field-hint">Dev only — release builds use api.nabooth.id</span>
+          <input id="api-url" type="url" placeholder="http://localhost:5050" />
+        </label>
+        <label>
+          Username
+          <input id="username" autocomplete="username" />
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password" />
+        </label>
+        <label class="check-row">
+          <input id="remember-password" type="checkbox" />
+          <span>Remember password on this PC</span>
+        </label>
+        <p id="login-error" class="error hidden" role="alert"></p>
+        <button id="btn-login" type="button">Connect</button>
+      </section>
+
+      <section class="card hidden" id="main-card">
+        <div class="row between">
+          <div>
+            <div id="status-pill" class="pill off">Offline</div>
+            <p class="muted" id="status-detail">—</p>
+          </div>
+          <button id="btn-logout" type="button" class="ghost">Disconnect</button>
+        </div>
+        <p class="muted small" id="connected-printer-hint">—</p>
+      </section>
+
+      <section class="card" id="jobs-card">
+        <div class="row between">
+          <h2 class="log-title">Print jobs</h2>
+          <button id="btn-clear-jobs" type="button" class="ghost tiny">
+            Clear
+          </button>
+        </div>
+        <div id="jobs" class="jobs">
+          <p class="muted small" id="jobs-empty">
+            Strips from the booth show here when printing.
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="log-title">Log</h2>
+        <div id="log" class="log"></div>
+      </section>
+    </main>
+  </body>
+</html>
