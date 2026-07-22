@@ -16,7 +16,7 @@ Login with credentials from nabooth dashboard **Print Agent** (`/dashboard/print
 
 | Mode | API |
 |------|-----|
-| **Release** (`pnpm tauri build`) | fixed `https://api.nabooth.id` (no URL field) |
+| **Release** (`pnpm tauri build`) | fixed `https://nabooth.id` (paths `/v1/...`, no URL field) |
 | **Dev** (`pnpm tauri dev`) | URL field shown; default `http://localhost:5050` |
 
 ## Icons

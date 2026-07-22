@@ -2,8 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 
 type PrinterInfo = { name: string };
 
-/** Production API host (release builds always use this). */
-const PROD_API_URL = "https://api.nabooth.id";
+/**
+ * Production API base (release builds always use this).
+ * Must be a host with a publicly trusted TLS cert.
+ * `api.nabooth.id` is origin-only + Traefik default cert → reqwest fails.
+ * Apex routes `/v1/*` to the API (see nabooth deploy/k8s/ingress.yaml).
+ */
+const PROD_API_URL = "https://nabooth.id";
 /** Local API when running `tauri dev` / Vite dev. */
 const DEV_API_URL = "http://localhost:5050";
 const IS_DEV = import.meta.env.DEV;
