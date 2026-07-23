@@ -6,6 +6,12 @@
 #   2) git tag v0.1.0 && git push origin v0.1.0
 #
 # Download: workflow run → Artifacts
+#
+# Optional code signing (see SIGNING.md):
+#   macOS: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#          APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
+#   Windows: WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD
+# Missing secrets → unsigned build still succeeds (Gatekeeper/SmartScreen will warn).
 name: Build
 
 on:
@@ -121,8 +127,91 @@ jobs:
         env:
           V: ${{ steps.ver.outputs.version }}
 
+      # --- macOS: import Developer ID cert when secrets are present ---
+      - name: Import Apple signing certificate
+        if: startsWith(matrix.platform, 'darwin')
+        id: apple_cert
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
+            echo "APPLE_CERTIFICATE not set — macOS build will be UNSIGNED (Gatekeeper will warn)."
+            echo "imported=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "::error::APPLE_CERTIFICATE is set but APPLE_CERTIFICATE_PASSWORD is empty"
+            exit 1
+          fi
+
+          KEYCHAIN_PATH="${RUNNER_TEMP}/nabooth-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
+          CERT_PATH="${RUNNER_TEMP}/apple-certificate.p12"
+
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security import "$CERT_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+
+          rm -f "$CERT_PATH"
+
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
+          echo "imported=true" >> "$GITHUB_OUTPUT"
+          echo "Apple certificate imported into temporary keychain."
+
       - name: Tauri build
-        run: pnpm tauri build --target ${{ matrix.rust_target }}
+        shell: bash
+        env:
+          # macOS sign + notarize (Tauri 2 reads these when present)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.platform }}" == darwin-* ]]; then
+            if [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+              echo "macOS: signing with APPLE_SIGNING_IDENTITY (value not printed)."
+              if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+                echo "macOS: notarization env present — Tauri will notarize during build."
+              else
+                echo "macOS: notarization secrets incomplete (APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID) — signed but may not notarize."
+              fi
+            else
+              echo "macOS: unsigned build (missing APPLE_CERTIFICATE and/or APPLE_SIGNING_IDENTITY)."
+            fi
+          fi
+          pnpm tauri build --target ${{ matrix.rust_target }}
+
+      - name: Cleanup Apple keychain
+        if: always() && startsWith(matrix.platform, 'darwin')
+        shell: bash
+        run: |
+          set +e
+          if [ -n "${KEYCHAIN_PATH:-}" ] && [ -f "${KEYCHAIN_PATH}" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" || true
+            echo "Temporary signing keychain removed."
+          fi
+          rm -f "${RUNNER_TEMP}/apple-certificate.p12" 2>/dev/null || true
 
       - name: Collect artifacts
         id: pack
@@ -165,6 +254,75 @@ jobs:
           fi
           ls -la "$OUT"
           echo "dir=$OUT" >> "$GITHUB_OUTPUT"
+
+      # --- Windows: Authenticode sign collected MSI + NSIS after pack ---
+      - name: Sign Windows installers
+        if: matrix.platform == 'windows-x64'
+        shell: bash
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          OUT="${{ steps.pack.outputs.dir }}"
+
+          if [ -z "${WINDOWS_CERTIFICATE:-}" ]; then
+            echo "WINDOWS_CERTIFICATE not set — Windows installers UNSIGNED (SmartScreen will warn)."
+            exit 0
+          fi
+          if [ -z "${WINDOWS_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "::error::WINDOWS_CERTIFICATE is set but WINDOWS_CERTIFICATE_PASSWORD is empty"
+            exit 1
+          fi
+
+          PFX="${RUNNER_TEMP}/windows-certificate.pfx"
+          echo "$WINDOWS_CERTIFICATE" | base64 --decode > "$PFX"
+
+          # Locate signtool.exe (Windows SDK on GHA windows-latest)
+          SIGNTOOL=""
+          for candidate in \
+            "/c/Program Files (x86)/Windows Kits/10/bin/"*/x64/signtool.exe \
+            "/c/Program Files/Windows Kits/10/bin/"*/x64/signtool.exe
+          do
+            if [ -f "$candidate" ]; then
+              SIGNTOOL="$candidate"
+            fi
+          done
+          # Prefer highest version path (glob expands sorted; last wins)
+          if [ -z "$SIGNTOOL" ]; then
+            SIGNTOOL=$(find "/c/Program Files (x86)/Windows Kits/10/bin" -path '*/x64/signtool.exe' 2>/dev/null | sort -V | tail -1 || true)
+          fi
+          if [ -z "$SIGNTOOL" ] || [ ! -f "$SIGNTOOL" ]; then
+            echo "::error::signtool.exe not found — install Windows SDK on runner or fix path detection"
+            rm -f "$PFX"
+            exit 1
+          fi
+          echo "Using signtool: $SIGNTOOL"
+
+          shopt -s nullglob
+          signed=0
+          for f in "$OUT"/*.msi "$OUT"/*-setup.exe; do
+            [ -f "$f" ] || continue
+            echo "Signing: $(basename "$f")"
+            "$SIGNTOOL" sign \
+              /f "$PFX" \
+              /p "$WINDOWS_CERTIFICATE_PASSWORD" \
+              /fd SHA256 \
+              /tr http://timestamp.digicert.com \
+              /td SHA256 \
+              "$f"
+            "$SIGNTOOL" verify /pa "$f"
+            signed=$((signed + 1))
+          done
+
+          rm -f "$PFX"
+
+          if [ "$signed" -eq 0 ]; then
+            echo "::error::WINDOWS_CERTIFICATE set but no .msi / *-setup.exe found under $OUT"
+            ls -la "$OUT" || true
+            exit 1
+          fi
+          echo "Signed $signed Windows installer(s)."
 
       - uses: actions/upload-artifact@v4
         with:

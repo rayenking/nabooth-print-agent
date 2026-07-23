@@ -40,6 +40,14 @@ Workflow: `.github/workflows/build.yml` — **no k3s deploy**.
 Matrix: `darwin-arm64`, `darwin-x64`, `windows-x64`, `linux-x64`.
 Download: run → **Artifacts** (30 days).
 
+### Code signing
+
+CI builds **unsigned** until GitHub secrets are set. Operators will see Gatekeeper / SmartScreen warnings on first open — expected.
+
+With cert secrets configured, macOS (Developer ID + notarize) and Windows (Authenticode) installers are signed in the same workflow.
+
+Full setup (what to buy, secret names, verify commands): **[SIGNING.md](./SIGNING.md)**.
+
 ### Local (current OS only)
 
 ```bash
