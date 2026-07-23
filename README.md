@@ -1,11 +1,59 @@
 # Nabooth Print Agent
 
-Desktop bridge (Tauri) so booth/iPad can print strips to a USB printer on this PC.
+App for the PC connected to your photo printer. Lets the Nabooth booth print photo strips from iPad/phone to that printer.
 
-Standalone repo (split from [nabooth](https://github.com/rayenking/nabooth) monorepo).
-API / dashboard still live in nabooth; this repo is **only** the desktop agent + installer CI.
+[![Latest release](https://img.shields.io/github/v/release/rayenking/nabooth-print-agent)](https://github.com/rayenking/nabooth-print-agent/releases/latest)
 
-## Dev
+## Download (latest)
+
+| Your computer | Download |
+|---------------|----------|
+| **Windows** (most PCs) | [Download for Windows](https://github.com/rayenking/nabooth-print-agent/releases/latest) — pick `Nabooth-Print-Agent-Windows-x64.msi` or `.exe` |
+| **Mac (Apple Silicon)** M1 / M2 / M3 / M4 | [Download for Mac](https://github.com/rayenking/nabooth-print-agent/releases/latest) — pick `Nabooth-Print-Agent-Mac-AppleSilicon.dmg` |
+| **Mac (Intel)** | Same [Releases](https://github.com/rayenking/nabooth-print-agent/releases/latest) page — pick `Nabooth-Print-Agent-Mac-Intel.dmg` |
+| **Linux** (optional) | Same Releases page — AppImage or `.deb` |
+
+> **No release yet?** Files appear after we publish a version (git tag). Until then, ask your admin or check **Actions → Build → Artifacts**.
+
+## Install in 3 steps
+
+1. Download the file for your computer from [Releases](https://github.com/rayenking/nabooth-print-agent/releases/latest)
+2. Open / install it  
+   - **Windows:** double-click the installer → Next → Next  
+   - **Mac:** open the `.dmg` → drag **Nabooth Print Agent** to Applications
+3. Open **Nabooth Print Agent**
+
+## First-time setup
+
+1. On the Nabooth dashboard → **Print Agent** (Pro) → create username / password
+2. In the desktop app → log in with those credentials
+3. Choose your USB / photo printer
+4. Leave the app **online** while the booth is running
+5. On the booth done screen → **Print with Nabooth**
+
+## If Windows or Mac says the app is unsafe
+
+Unsigned builds show a warning. This is normal — not a virus.
+
+- **Windows:** More info → **Run anyway**
+- **Mac:** System Settings → Privacy & Security → **Open Anyway**, or right-click the app → **Open**
+
+Full signing docs for admins: [SIGNING.md](./SIGNING.md)
+
+## Need help?
+
+- Keep the agent **online** on the printer PC
+- Same Wi‑Fi as the booth is **not** required (cloud), but the PC needs internet
+- Username / password come from the dashboard **Print Agent** page
+- Still stuck? Contact your Nabooth admin
+
+---
+
+## For developers
+
+Standalone repo (split from [nabooth](https://github.com/rayenking/nabooth)). API / dashboard stay in nabooth; this repo is **only** the desktop agent + installer CI.
+
+### Dev setup
 
 ```bash
 pnpm install
@@ -19,7 +67,7 @@ Login with credentials from nabooth dashboard **Print Agent** (`/dashboard/print
 | **Release** (`pnpm tauri build`) | fixed `https://nabooth.id` (paths `/v1/...`, no URL field) |
 | **Dev** (`pnpm tauri dev`) | URL field shown; default `http://localhost:5050` |
 
-## Icons
+### Icons
 
 Source: `assets/naboothlogo.svg`
 
@@ -28,17 +76,22 @@ pnpm icons
 pnpm tauri build
 ```
 
-## Build installers (GitHub Actions)
+### Build CI (installers)
 
-Workflow: `.github/workflows/build.yml` — **no k3s deploy**.
+Workflow: [`.github/workflows/build.yml`](.github/workflows/build.yml) — **no k3s deploy**.
 
-| Trigger | How |
-|---------|-----|
-| Manual | Actions → **Build** → Run workflow |
-| Tag | `git tag v0.1.0 && git push origin v0.1.0` |
+| Trigger | How | Output |
+|---------|-----|--------|
+| Manual | Actions → **Build** → Run workflow | Artifacts only (30 days) |
+| Tag | `git tag v0.1.0 && git push origin v0.1.0` | Artifacts **+** [GitHub Release](https://github.com/rayenking/nabooth-print-agent/releases) with installers |
 
 Matrix: `darwin-arm64`, `darwin-x64`, `windows-x64`, `linux-x64`.
-Download: run → **Artifacts** (30 days).
+
+Release assets are renamed for operators, e.g.:
+
+- `Nabooth-Print-Agent-Windows-x64.msi` / `.exe`
+- `Nabooth-Print-Agent-Mac-AppleSilicon.dmg`
+- `Nabooth-Print-Agent-Mac-Intel.dmg`
 
 ### Code signing
 
@@ -48,7 +101,7 @@ With cert secrets configured, macOS (Developer ID + notarize) and Windows (Authe
 
 Full setup (what to buy, secret names, verify commands): **[SIGNING.md](./SIGNING.md)**.
 
-### Local (current OS only)
+### Local build (current OS only)
 
 ```bash
 pnpm tauri build
@@ -64,14 +117,7 @@ VERSION=0.1.0 NABOOTH_TOKEN=... API_URL=https://api.nabooth.id \
   --windows-x64 path/to/*.msi
 ```
 
-## Flow
+### OS print backends
 
-1. Operator saves print-agent username/password in nabooth dashboard
-2. Run this app on the PC with the printer, login, pick printer
-3. Keep online
-4. Booth done → **Print with Nabooth**
-
-## OS print
-
-- macOS/Linux: CUPS `lp` / `lpstat`
-- Windows: PowerShell `Get-Printer` + `Start-Process -Verb Print`
+- **macOS / Linux:** CUPS `lp` / `lpstat`
+- **Windows:** PowerShell `Get-Printer` + `Start-Process -Verb Print`

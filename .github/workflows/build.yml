@@ -2,10 +2,11 @@
 # Standalone repo — no k3s / nabooth CD.
 #
 # Triggers:
-#   1) Actions → Build → Run workflow
-#   2) git tag v0.1.0 && git push origin v0.1.0
+#   1) Actions → Build → Run workflow  → Artifacts only
+#   2) git tag v0.1.0 && git push origin v0.1.0  → Artifacts + GitHub Release
 #
-# Download: workflow run → Artifacts
+# Operator download: https://github.com/rayenking/nabooth-print-agent/releases/latest
+# Manual dispatch never creates a Release (tag-only).
 #
 # Optional code signing (see SIGNING.md):
 #   macOS: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
@@ -29,6 +30,7 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+# Default read; release job elevates to write for GitHub Releases.
 permissions:
   contents: read
 
@@ -330,3 +332,93 @@ jobs:
           path: ${{ steps.pack.outputs.dir }}
           if-no-files-found: error
           retention-days: 30
+
+  # Tag-only: attach installers to a GitHub Release for operator download links.
+  # workflow_dispatch stays artifact-only (no junk releases).
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten and rename release assets
+        id: assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          shopt -s nullglob
+
+          # Artifact dirs look like:
+          #   artifacts/nabooth-print-agent-0.1.0-darwin-arm64/*.dmg
+          #   artifacts/nabooth-print-agent-0.1.0-windows-x64/*.msi
+          map_platform() {
+            local dir="$1"
+            local os_label="$2"
+            [ -d "$dir" ] || return 0
+            for f in "$dir"/*; do
+              [ -f "$f" ] || continue
+              base=$(basename "$f")
+              case "$os_label:$base" in
+                mac-arm:*.dmg)   cp -v "$f" "release-assets/Nabooth-Print-Agent-Mac-AppleSilicon.dmg" ;;
+                mac-arm:*.zip)   cp -v "$f" "release-assets/Nabooth-Print-Agent-Mac-AppleSilicon.app.zip" ;;
+                mac-intel:*.dmg) cp -v "$f" "release-assets/Nabooth-Print-Agent-Mac-Intel.dmg" ;;
+                mac-intel:*.zip) cp -v "$f" "release-assets/Nabooth-Print-Agent-Mac-Intel.app.zip" ;;
+                win:*.msi)       cp -v "$f" "release-assets/Nabooth-Print-Agent-Windows-x64.msi" ;;
+                win:*-setup.exe) cp -v "$f" "release-assets/Nabooth-Print-Agent-Windows-x64-setup.exe" ;;
+                win:*.exe)       cp -v "$f" "release-assets/Nabooth-Print-Agent-Windows-x64.exe" ;;
+                linux:*.AppImage) cp -v "$f" "release-assets/Nabooth-Print-Agent-Linux-x64.AppImage" ;;
+                linux:*.deb)     cp -v "$f" "release-assets/Nabooth-Print-Agent-Linux-x64.deb" ;;
+                *)               cp -v "$f" "release-assets/$base" ;;
+              esac
+            done
+          }
+
+          for dir in artifacts/nabooth-print-agent-*-darwin-arm64; do
+            map_platform "$dir" mac-arm
+          done
+          for dir in artifacts/nabooth-print-agent-*-darwin-x64; do
+            map_platform "$dir" mac-intel
+          done
+          for dir in artifacts/nabooth-print-agent-*-windows-x64; do
+            map_platform "$dir" win
+          done
+          for dir in artifacts/nabooth-print-agent-*-linux-x64; do
+            map_platform "$dir" linux
+          done
+
+          # Fallback: unexpected layout — flatten basenames
+          if [ -z "$(ls -A release-assets 2>/dev/null || true)" ]; then
+            echo "Primary rename found nothing — flattening all artifact files as-is."
+            find artifacts -type f -print0 | while IFS= read -r -d '' f; do
+              cp -v "$f" "release-assets/$(basename "$f")"
+            done
+          fi
+
+          echo "Release assets:"
+          ls -la release-assets
+          count=$(find release-assets -type f | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "::error::No release assets found after download"
+            find artifacts -type f | head -50 || true
+            exit 1
+          fi
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
