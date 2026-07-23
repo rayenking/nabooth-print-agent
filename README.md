@@ -83,6 +83,7 @@ Workflow: [`.github/workflows/build.yml`](.github/workflows/build.yml) — **no 
 | Trigger | How | Output |
 |---------|-----|--------|
 | Manual | Actions → **Build** → Run workflow | Artifacts only (30 days) |
+| Push to `main` | `git push origin main` | Artifacts only (30 days) |
 | Tag | `git tag v0.1.0 && git push origin v0.1.0` | Artifacts **+** [GitHub Release](https://github.com/rayenking/nabooth-print-agent/releases) with installers |
 
 Matrix: `darwin-arm64`, `darwin-x64`, `windows-x64`, `linux-x64`.
