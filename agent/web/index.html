@@ -1,121 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light" />
   <title>Nabooth Print Agent</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="apple-touch-icon" href="/logo.png" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="shell">
     <header class="top">
       <div class="brand">
-        <div class="mark" aria-hidden="true"></div>
+        <img class="mark" src="/logo.png" alt="Nabooth" width="40" height="40" />
         <div>
-          <h1>Nabooth Print Agent</h1>
-          <p class="tag">Local control panel · printer PC</p>
+          <h1 data-i18n="title">Nabooth Print Agent</h1>
+          <p class="tag" data-i18n="tagline">Panel kontrol lokal · PC printer</p>
         </div>
       </div>
       <div class="status-block">
-        <span id="status-pill" class="pill off" role="status">Offline</span>
-        <p id="status-detail" class="detail">Not connected</p>
+        <div class="status-row">
+          <div class="lang-toggle" role="group" aria-label="Language">
+            <button type="button" class="lang-btn" data-lang="id" id="lang-id">ID</button>
+            <button type="button" class="lang-btn" data-lang="en" id="lang-en">EN</button>
+          </div>
+          <span id="status-pill" class="pill off" role="status" data-i18n="statusOffline">Offline</span>
+        </div>
+        <p id="status-detail" class="detail" data-i18n="statusNotConnected">Belum terhubung</p>
       </div>
     </header>
 
     <div id="update-banner" class="update-banner hidden" role="status">
       <div class="update-banner-text">
-        <strong>Update available</strong>
+        <strong data-i18n="updateAvailable">Pembaruan tersedia</strong>
         <span id="update-banner-detail"></span>
       </div>
       <div class="update-banner-actions">
-        <a id="update-release-link" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Notes</a>
-        <button type="button" class="primary tiny" id="btn-update-now">How to update</button>
+        <a id="update-release-link" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener" data-i18n="notes">Catatan</a>
+        <button type="button" class="primary tiny" id="btn-update-now" data-i18n="howToUpdate">Cara memperbarui</button>
       </div>
     </div>
 
     <main class="grid">
       <section class="card" id="printer-card">
         <div class="card-head">
-          <h2>Printer</h2>
-          <button type="button" class="ghost tiny" id="btn-refresh-printers">Refresh</button>
+          <h2 data-i18n="printer">Printer</h2>
+          <button type="button" class="ghost tiny" id="btn-refresh-printers" data-i18n="refresh">Muat ulang</button>
         </div>
         <label>
-          Selected printer
+          <span data-i18n="selectedPrinter">Printer terpilih</span>
           <select id="printer"></select>
         </label>
-        <p id="printer-hint" class="hint">Jobs use this printer’s OS defaults when you click Print.</p>
+        <p id="printer-hint" class="hint" data-i18n="printerHint">Pekerjaan memakai default OS printer ini saat Anda klik Cetak.</p>
       </section>
 
       <section class="card" id="connect-card">
         <div class="card-head">
-          <h2>Connect</h2>
-          <button type="button" class="ghost tiny hidden" id="btn-logout">Disconnect</button>
+          <h2 data-i18n="connect">Sambungkan</h2>
+          <button type="button" class="ghost tiny hidden" id="btn-logout" data-i18n="disconnect">Putuskan</button>
         </div>
         <div id="api-url-field" class="hidden">
           <label>
-            API URL <span class="soft">(dev)</span>
+            API URL <span class="soft" data-i18n="dev">(dev)</span>
             <input id="api-url" type="url" autocomplete="off" spellcheck="false" placeholder="http://localhost:5050" />
           </label>
         </div>
         <label>
-          Username
+          <span data-i18n="username">Username</span>
           <input id="username" type="text" autocomplete="username" spellcheck="false" />
         </label>
         <label>
-          Password
+          <span data-i18n="password">Password</span>
           <input id="password" type="password" autocomplete="current-password" />
         </label>
         <label class="check">
           <input id="remember" type="checkbox" />
-          <span>Remember password on this PC</span>
+          <span data-i18n="rememberPassword">Ingat password di PC ini</span>
         </label>
         <p id="login-error" class="error hidden" role="alert"></p>
-        <button type="button" id="btn-login" class="primary">Connect</button>
-        <p class="hint">Credentials from dashboard → Print Agent (Pro).</p>
+        <button type="button" id="btn-login" class="primary" data-i18n="connectBtn">Sambungkan</button>
+        <p class="hint" data-i18n="connectHint">Kredensial dari dashboard → Print Agent (Pro).</p>
       </section>
 
       <section class="card span-2" id="jobs-card">
         <div class="card-head">
-          <h2>Jobs</h2>
+          <h2 data-i18n="jobs">Pekerjaan</h2>
           <span class="soft" id="jobs-count">0</span>
         </div>
         <div id="jobs" class="jobs">
-          <p id="jobs-empty" class="empty">Waiting for booth prints…</p>
+          <p id="jobs-empty" class="empty" data-i18n="jobsEmpty">Menunggu cetakan dari booth…</p>
         </div>
       </section>
 
       <section class="card span-2" id="bg-card">
         <div class="card-head">
-          <h2>Background &amp; updates</h2>
-          <span id="autostart-pill" class="pill off">Off</span>
+          <h2 data-i18n="bgUpdates">Background &amp; pembaruan</h2>
+          <span id="autostart-pill" class="pill off" data-i18n="off">Mati</span>
         </div>
         <div class="bg-block">
-          <h3 class="subhead">Start at login</h3>
-          <p class="hint">
-            Install background so Print Agent starts at login. Remove background turns that off.
-            Needed so booth print jobs still arrive without opening Terminal.
+          <h3 class="subhead" data-i18n="startAtLogin">Mulai saat login</h3>
+          <p class="hint" data-i18n="autostartHint">
+            Pasang background agar Print Agent jalan saat login. Hapus background mematikannya.
+            Diperlukan agar pekerjaan cetak booth tetap masuk tanpa membuka Terminal.
           </p>
-          <p id="autostart-detail" class="detail-line">Checking…</p>
+          <p id="autostart-detail" class="detail-line" data-i18n="checking">Memeriksa…</p>
           <div class="row-actions">
-            <button type="button" class="primary" id="btn-autostart">Install background</button>
+            <button type="button" class="primary" id="btn-autostart" data-i18n="installBackground">Pasang background</button>
           </div>
         </div>
         <div class="bg-block">
-          <h3 class="subhead">Software update</h3>
-          <p id="update-detail" class="detail-line">Checking for updates…</p>
+          <h3 class="subhead" data-i18n="softwareUpdate">Pembaruan perangkat lunak</h3>
+          <p id="update-detail" class="detail-line" data-i18n="checkingUpdates">Memeriksa pembaruan…</p>
           <div class="row-actions">
-            <button type="button" class="primary hidden" id="btn-update">How to update</button>
-            <button type="button" class="ghost tiny" id="btn-check-update">Check again</button>
-            <a id="update-notes" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Release notes</a>
+            <button type="button" class="primary hidden" id="btn-update" data-i18n="howToUpdate">Cara memperbarui</button>
+            <button type="button" class="ghost tiny" id="btn-check-update" data-i18n="checkAgain">Periksa lagi</button>
+            <a id="update-notes" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener" data-i18n="releaseNotes">Catatan rilis</a>
           </div>
         </div>
       </section>
 
       <section class="card span-2" id="log-card">
         <div class="card-head">
-          <h2>Log</h2>
-          <button type="button" class="ghost tiny" id="btn-clear-log">Clear</button>
+          <h2 data-i18n="log">Log</h2>
+          <button type="button" class="ghost tiny" id="btn-clear-log" data-i18n="clear">Hapus</button>
         </div>
         <pre id="log" class="log" aria-live="polite"></pre>
       </section>
@@ -132,27 +140,27 @@
     <div class="modal-backdrop" data-close="update"></div>
     <div class="modal-card">
       <div class="modal-head">
-        <h2 id="modal-update-title">Update Print Agent</h2>
-        <button type="button" class="ghost tiny" data-close="update" aria-label="Close">Close</button>
+        <h2 id="modal-update-title" data-i18n="modalUpdateTitle">Perbarui Print Agent</h2>
+        <button type="button" class="ghost tiny" data-close="update" data-i18n="close" data-i18n-aria="closeAria">Tutup</button>
       </div>
-      <p id="modal-update-summary" class="hint">A newer version is available.</p>
+      <p id="modal-update-summary" class="hint" data-i18n="modalUpdateSummary">Versi lebih baru tersedia.</p>
       <ol class="modal-steps">
-        <li>Download the binary for this PC (or re-run the install command).</li>
-        <li>Stop this agent if needed, then replace/run the new binary.</li>
-        <li>Open <code>http://127.0.0.1:17890</code> again.</li>
+        <li data-i18n="modalStep1">Unduh binary untuk PC ini (atau jalankan ulang perintah instalasi).</li>
+        <li data-i18n="modalStep2">Hentikan agent ini jika perlu, lalu ganti/jalankan binary baru.</li>
+        <li data-i18n="modalStep3">Buka <code>http://127.0.0.1:17890</code> lagi.</li>
       </ol>
       <label>
-        Install command
+        <span data-i18n="installCommand">Perintah instalasi</span>
         <div class="copy-row">
           <input id="modal-update-cmd" type="text" readonly spellcheck="false" />
-          <button type="button" class="ghost tiny" id="btn-copy-install">Copy</button>
+          <button type="button" class="ghost tiny" id="btn-copy-install" data-i18n="copy">Salin</button>
         </div>
       </label>
       <div class="row-actions">
-        <a id="modal-update-download" class="primary linkish-btn" href="#" target="_blank" rel="noopener">Download binary</a>
-        <a id="modal-update-release" class="ghost tiny linkish" href="#" target="_blank" rel="noopener">Release notes</a>
+        <a id="modal-update-download" class="primary linkish-btn" href="#" target="_blank" rel="noopener" data-i18n="downloadBinary">Unduh binary</a>
+        <a id="modal-update-release" class="ghost tiny linkish" href="#" target="_blank" rel="noopener" data-i18n="releaseNotes">Catatan rilis</a>
       </div>
-      <p class="hint">Self-update is disabled. Updates are manual on purpose.</p>
+      <p class="hint" data-i18n="selfUpdateDisabled">Self-update dinonaktifkan. Pembaruan manual dengan sengaja.</p>
     </div>
   </div>
 

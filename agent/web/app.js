@@ -1,5 +1,287 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  const LANG_KEY = "nabooth-print-agent-lang";
+
+  const STRINGS = {
+    id: {
+      title: "Nabooth Print Agent",
+      tagline: "Panel kontrol lokal · PC printer",
+      statusOnline: "Online",
+      statusOffline: "Offline",
+      statusConnecting: "Menghubungkan…",
+      statusNotConnected: "Belum terhubung",
+      statusDisconnected: "Terputus",
+      statusOpeningCloud: "Membuka koneksi cloud…",
+      statusConnected: "Terhubung · {printer}",
+      defaultPrinter: "printer default",
+      updateAvailable: "Pembaruan tersedia",
+      notes: "Catatan",
+      howToUpdate: "Cara memperbarui",
+      printer: "Printer",
+      refresh: "Muat ulang",
+      selectedPrinter: "Printer terpilih",
+      printerHint: "Pekerjaan memakai default OS printer ini saat Anda klik Cetak.",
+      printerHintNamed: "Pekerjaan memakai: {name} (default OS)",
+      printerHintPick: "Pilih printer di atas sebelum menyambung.",
+      connect: "Sambungkan",
+      disconnect: "Putuskan",
+      connectBtn: "Sambungkan",
+      connectedBtn: "Terhubung",
+      reconnectBtn: "Sambungkan ulang",
+      username: "Username",
+      password: "Password",
+      rememberPassword: "Ingat password di PC ini",
+      connectHint: "Kredensial dari dashboard → Print Agent (Pro).",
+      jobs: "Pekerjaan",
+      jobsEmpty: "Menunggu cetakan dari booth…",
+      bgUpdates: "Background & pembaruan",
+      on: "Nyala",
+      off: "Mati",
+      startAtLogin: "Mulai saat login",
+      autostartHint:
+        "Pasang background agar Print Agent jalan saat login. Hapus background mematikannya. Diperlukan agar pekerjaan cetak booth tetap masuk tanpa membuka Terminal.",
+      checking: "Memeriksa…",
+      installBackground: "Pasang background",
+      removeBackground: "Hapus background",
+      softwareUpdate: "Pembaruan perangkat lunak",
+      checkingUpdates: "Memeriksa pembaruan…",
+      checkAgain: "Periksa lagi",
+      releaseNotes: "Catatan rilis",
+      log: "Log",
+      clear: "Hapus",
+      modalUpdateTitle: "Perbarui Print Agent",
+      close: "Tutup",
+      closeAria: "Tutup",
+      modalUpdateSummary: "Versi lebih baru tersedia.",
+      modalStep1: "Unduh binary untuk PC ini (atau jalankan ulang perintah instalasi).",
+      modalStep2: "Hentikan agent ini jika perlu, lalu ganti/jalankan binary baru.",
+      modalStep3: "Buka http://127.0.0.1:17890 lagi.",
+      installCommand: "Perintah instalasi",
+      copy: "Salin",
+      downloadBinary: "Unduh binary",
+      downloadNamed: "Unduh {name}",
+      openReleases: "Buka rilis",
+      selfUpdateDisabled: "Self-update dinonaktifkan. Pembaruan manual dengan sengaja.",
+      loginRequired: "Username & password wajib diisi",
+      loginFailed: "Login gagal",
+      loginOk: "Login berhasil",
+      loginError: "Error login: {msg}",
+      loggedOut: "Keluar",
+      logoutDetail: "Sudah keluar",
+      noPrinters: "(tidak ada printer)",
+      printersLabel: "Printer: {list}",
+      noPrintersFound: "Tidak ada printer",
+      printersError: "Printer: {msg}",
+      listPrintersError: "daftar printer: {msg}",
+      printerSet: "Printer disetel: {name}",
+      setPrinterError: "set printer: {msg}",
+      none: "(tidak ada)",
+      stateReceiving: "Menerima…",
+      stateReady: "Siap cetak",
+      statePrinting: "Mencetak…",
+      stateDone: "Selesai",
+      stateFailed: "Gagal",
+      print: "Cetak…",
+      open: "Buka",
+      stripAlt: "Strip",
+      jobPrintDialog: "Pekerjaan {id}: membuka dialog Cetak sistem…",
+      jobPrintCancelled: "Pekerjaan {id}: cetak dibatalkan",
+      jobError: "Pekerjaan {id}: {msg}",
+      openError: "Buka: {msg}",
+      updateCheckFailed: "Gagal memeriksa pembaruan.",
+      updateCheckFailedDetail: "Pemeriksaan pembaruan gagal: {msg}",
+      updateAvailableDetail: "Pembaruan tersedia: v{latest} (Anda punya v{current})",
+      upToDate: "Sudah terbaru · v{current}",
+      upToDateLatest: "Sudah terbaru · v{current} (terbaru v{latest})",
+      modalUpdateAvailable:
+        "v{latest} tersedia (Anda punya v{current}). Unduh binary atau jalankan ulang perintah instalasi.",
+      modalUpdateCurrent: "Saat ini v{current}. Anda masih bisa menginstal ulang rilis terbaru secara manual.",
+      autostartReadFailed: "Tidak bisa membaca status autostart.",
+      autostartUnsupported: "Autostart tidak didukung di OS ini.",
+      notAvailable: "Tidak tersedia",
+      enabled: "Aktif",
+      notInstalled: "Belum dipasang",
+      method: "metode: {method}",
+      backgroundRemoved: "Background / autostart dihapus",
+      backgroundInstalled: "Background / autostart dipasang",
+      autostartError: "autostart: {msg}",
+      installCopied: "Perintah instalasi disalin",
+      copyFailed: "Salin gagal — pilih perintah dan salin manual",
+      statusError: "status: {msg}",
+      checkingUpdatesLog: "Memeriksa pembaruan…",
+      updateCheckError: "pemeriksaan pembaruan: {msg}",
+      default: "default",
+      dev: "(dev)",
+    },
+    en: {
+      title: "Nabooth Print Agent",
+      tagline: "Local control panel · printer PC",
+      statusOnline: "Online",
+      statusOffline: "Offline",
+      statusConnecting: "Connecting…",
+      statusNotConnected: "Not connected",
+      statusDisconnected: "Disconnected",
+      statusOpeningCloud: "Opening cloud connection…",
+      statusConnected: "Connected · {printer}",
+      defaultPrinter: "default printer",
+      updateAvailable: "Update available",
+      notes: "Notes",
+      howToUpdate: "How to update",
+      printer: "Printer",
+      refresh: "Refresh",
+      selectedPrinter: "Selected printer",
+      printerHint: "Jobs use this printer’s OS defaults when you click Print.",
+      printerHintNamed: "Jobs will use: {name} (OS defaults)",
+      printerHintPick: "Pick a printer above before connecting.",
+      connect: "Connect",
+      disconnect: "Disconnect",
+      connectBtn: "Connect",
+      connectedBtn: "Connected",
+      reconnectBtn: "Reconnect",
+      username: "Username",
+      password: "Password",
+      rememberPassword: "Remember password on this PC",
+      connectHint: "Credentials from dashboard → Print Agent (Pro).",
+      jobs: "Jobs",
+      jobsEmpty: "Waiting for booth prints…",
+      bgUpdates: "Background & updates",
+      on: "On",
+      off: "Off",
+      startAtLogin: "Start at login",
+      autostartHint:
+        "Install background so Print Agent starts at login. Remove background turns that off. Needed so booth print jobs still arrive without opening Terminal.",
+      checking: "Checking…",
+      installBackground: "Install background",
+      removeBackground: "Remove background",
+      softwareUpdate: "Software update",
+      checkingUpdates: "Checking for updates…",
+      checkAgain: "Check again",
+      releaseNotes: "Release notes",
+      log: "Log",
+      clear: "Clear",
+      modalUpdateTitle: "Update Print Agent",
+      close: "Close",
+      closeAria: "Close",
+      modalUpdateSummary: "A newer version is available.",
+      modalStep1: "Download the binary for this PC (or re-run the install command).",
+      modalStep2: "Stop this agent if needed, then replace/run the new binary.",
+      modalStep3: "Open http://127.0.0.1:17890 again.",
+      installCommand: "Install command",
+      copy: "Copy",
+      downloadBinary: "Download binary",
+      downloadNamed: "Download {name}",
+      openReleases: "Open releases",
+      selfUpdateDisabled: "Self-update is disabled. Updates are manual on purpose.",
+      loginRequired: "Username & password required",
+      loginFailed: "Login failed",
+      loginOk: "Login OK",
+      loginError: "Login error: {msg}",
+      loggedOut: "Logged out",
+      logoutDetail: "Logged out",
+      noPrinters: "(no printers found)",
+      printersLabel: "Printers: {list}",
+      noPrintersFound: "No printers found",
+      printersError: "Printers: {msg}",
+      listPrintersError: "list printers: {msg}",
+      printerSet: "Printer set: {name}",
+      setPrinterError: "set printer: {msg}",
+      none: "(none)",
+      stateReceiving: "Receiving…",
+      stateReady: "Ready to print",
+      statePrinting: "Printing…",
+      stateDone: "Done",
+      stateFailed: "Failed",
+      print: "Print…",
+      open: "Open",
+      stripAlt: "Strip",
+      jobPrintDialog: "Job {id}: opening system Print dialog…",
+      jobPrintCancelled: "Job {id}: print cancelled",
+      jobError: "Job {id}: {msg}",
+      openError: "Open: {msg}",
+      updateCheckFailed: "Could not check for updates.",
+      updateCheckFailedDetail: "Update check failed: {msg}",
+      updateAvailableDetail: "Update available: v{latest} (you have v{current})",
+      upToDate: "Up to date · v{current}",
+      upToDateLatest: "Up to date · v{current} (latest v{latest})",
+      modalUpdateAvailable:
+        "v{latest} is available (you have v{current}). Download the binary or re-run the install command.",
+      modalUpdateCurrent: "Current v{current}. You can still reinstall the latest release manually.",
+      autostartReadFailed: "Could not read autostart status.",
+      autostartUnsupported: "Autostart not supported on this OS.",
+      notAvailable: "Not available",
+      enabled: "Enabled",
+      notInstalled: "Not installed",
+      method: "method: {method}",
+      backgroundRemoved: "Background / autostart removed",
+      backgroundInstalled: "Background / autostart installed",
+      autostartError: "autostart: {msg}",
+      installCopied: "Install command copied",
+      copyFailed: "Copy failed — select the command and copy manually",
+      statusError: "status: {msg}",
+      checkingUpdatesLog: "Checking for updates…",
+      updateCheckError: "update check: {msg}",
+      default: "default",
+      dev: "(dev)",
+    },
+  };
+
+  let lang = "id";
+  try {
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved === "en" || saved === "id") lang = saved;
+  } catch {
+    /* ignore */
+  }
+
+  function t(key, vars) {
+    const dict = STRINGS[lang] || STRINGS.id;
+    let s = dict[key] ?? STRINGS.en[key] ?? key;
+    if (vars) {
+      for (const [k, v] of Object.entries(vars)) {
+        s = s.replaceAll(`{${k}}`, String(v ?? ""));
+      }
+    }
+    return s;
+  }
+
+  function applyStaticI18n() {
+    document.documentElement.lang = lang;
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const key = el.getAttribute("data-i18n");
+      if (!key) return;
+      el.textContent = t(key);
+    });
+    document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+      const key = el.getAttribute("data-i18n-aria");
+      if (key) el.setAttribute("aria-label", t(key));
+    });
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-lang") === lang);
+    });
+  }
+
+  function setLang(next) {
+    if (next !== "id" && next !== "en") return;
+    lang = next;
+    try {
+      localStorage.setItem(LANG_KEY, lang);
+    } catch {
+      /* ignore */
+    }
+    applyStaticI18n();
+    if (state.lastStatus) applyStatus(state.lastStatus);
+    else setStatus("off", t("statusNotConnected"));
+    renderJobs(state.jobs);
+    renderUpdate(state.update);
+    renderAutostart(state.autostart);
+    if (state.printer) {
+      $("printer-hint").textContent = t("printerHintNamed", { name: state.printer });
+    } else if ($("printer-hint")) {
+      $("printer-hint").textContent = t("printerHint");
+    }
+  }
+
   const state = {
     online: false,
     connecting: false,
@@ -10,6 +292,7 @@
     jobs: [],
     update: null,
     autostart: null,
+    lastStatus: null,
   };
 
   function log(msg) {
@@ -37,13 +320,18 @@
     if (pill) {
       pill.className = `pill ${kind}`;
       pill.textContent =
-        kind === "on" ? "Online" : kind === "wait" ? "Connecting…" : "Offline";
+        kind === "on"
+          ? t("statusOnline")
+          : kind === "wait"
+            ? t("statusConnecting")
+            : t("statusOffline");
     }
     if (det) det.textContent = detail || "";
   }
 
   function applyStatus(s) {
     if (!s) return;
+    state.lastStatus = s;
     state.online = !!s.online;
     state.connecting = !!s.connecting;
     state.printer = s.printer || "";
@@ -52,10 +340,17 @@
     state.remember = !!s.remember;
     if (s.version) $("version").textContent = `v${s.version}`;
 
-    if (s.connecting) setStatus("wait", "Opening cloud connection…");
+    if (s.connecting) setStatus("wait", t("statusOpeningCloud"));
     else if (s.online)
-      setStatus("on", `Connected · ${s.printer || "default printer"}`);
-    else setStatus("off", s.username ? "Disconnected" : "Not connected");
+      setStatus(
+        "on",
+        t("statusConnected", { printer: s.printer || t("defaultPrinter") })
+      );
+    else
+      setStatus(
+        "off",
+        s.username ? t("statusDisconnected") : t("statusNotConnected")
+      );
 
     if (s.username && $("username") && !$("username").value)
       $("username").value = s.username;
@@ -66,12 +361,12 @@
     const login = $("btn-login");
     if (s.online || s.hasToken) {
       logout?.classList.remove("hidden");
-      if (login) login.textContent = s.online ? "Connected" : "Reconnect";
+      if (login) login.textContent = s.online ? t("connectedBtn") : t("reconnectBtn");
       if (login) login.disabled = !!s.online;
     } else {
       logout?.classList.add("hidden");
       if (login) {
-        login.textContent = "Connect";
+        login.textContent = t("connectBtn");
         login.disabled = false;
       }
     }
@@ -81,8 +376,8 @@
       if (el && !el.textContent && s.logs.length) {
         el.textContent = s.logs
           .map((l) => {
-            const t = l.time ? new Date(l.time).toLocaleTimeString() : "";
-            return `[${t}] ${l.msg}`;
+            const tm = l.time ? new Date(l.time).toLocaleTimeString() : "";
+            return `[${tm}] ${l.msg}`;
           })
           .join("\n");
       }
@@ -136,9 +431,9 @@
       if (!list.length) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.textContent = data.error || "(no printers found)";
+        opt.textContent = data.error || t("noPrinters");
         select.appendChild(opt);
-        log(data.error ? `Printers: ${data.error}` : "No printers found");
+        log(data.error ? t("printersError", { msg: data.error }) : t("noPrintersFound"));
         return;
       }
       for (const p of list) {
@@ -149,12 +444,12 @@
         select.appendChild(opt);
       }
       if (!select.value && list[0]) select.value = list[0].name;
-      log(`Printers: ${list.map((p) => p.name).join(", ")}`);
+      log(t("printersLabel", { list: list.map((p) => p.name).join(", ") }));
       if (select.value && select.value !== state.printer) {
         await savePrinter(select.value, false);
       }
     } catch (e) {
-      log(`list printers: ${e.message || e}`);
+      log(t("listPrintersError", { msg: e.message || e }));
     }
   }
 
@@ -165,12 +460,12 @@
         body: JSON.stringify({ name }),
       });
       state.printer = name;
-      if (announce) log(`Printer set: ${name || "(none)"}`);
+      if (announce) log(t("printerSet", { name: name || t("none") }));
       $("printer-hint").textContent = name
-        ? `Jobs will use: ${name} (OS defaults)`
-        : "Pick a printer above before connecting.";
+        ? t("printerHintNamed", { name })
+        : t("printerHintPick");
     } catch (e) {
-      log(`set printer: ${e.message || e}`);
+      log(t("setPrinterError", { msg: e.message || e }));
     }
   }
 
@@ -181,15 +476,15 @@
   function stateLabel(st) {
     switch (st) {
       case "receiving":
-        return "Receiving…";
+        return t("stateReceiving");
       case "ready":
-        return "Ready to print";
+        return t("stateReady");
       case "printing":
-        return "Printing…";
+        return t("statePrinting");
       case "done":
-        return "Done";
+        return t("stateDone");
       case "failed":
-        return "Failed";
+        return t("stateFailed");
       default:
         return st || "—";
     }
@@ -206,7 +501,7 @@
       const p = document.createElement("p");
       p.id = "jobs-empty";
       p.className = "empty";
-      p.textContent = "Waiting for booth prints…";
+      p.textContent = t("jobsEmpty");
       root.appendChild(p);
       return;
     }
@@ -232,7 +527,7 @@
     if (job.path || job.state === "ready" || job.state === "done" || job.state === "printing") {
       const img = document.createElement("img");
       img.className = "job-thumb";
-      img.alt = "Strip";
+      img.alt = t("stripAlt");
       img.src = `/api/jobs/${encodeURIComponent(job.id)}/file?t=${Date.now()}`;
       img.onerror = () => {
         img.replaceWith(placeholderThumb());
@@ -253,7 +548,7 @@
     const detail = document.createElement("p");
     detail.className = "detail";
     const bits = [
-      job.printer || "default",
+      job.printer || t("default"),
       job.copies ? `×${job.copies}` : null,
       job.paperSize || null,
       job.error || null,
@@ -269,12 +564,12 @@
       const btnPrint = document.createElement("button");
       btnPrint.type = "button";
       btnPrint.className = "primary";
-      btnPrint.textContent = "Print…";
+      btnPrint.textContent = t("print");
       btnPrint.addEventListener("click", () => void printJob(job.id));
       const btnOpen = document.createElement("button");
       btnOpen.type = "button";
       btnOpen.className = "ghost";
-      btnOpen.textContent = "Open";
+      btnOpen.textContent = t("open");
       btnOpen.addEventListener("click", () => void openJob(job.id));
       actions.appendChild(btnPrint);
       actions.appendChild(btnOpen);
@@ -294,12 +589,12 @@
 
   async function printJob(id) {
     try {
-      log(`Job ${shortId(id)}: opening system Print dialog…`);
+      log(t("jobPrintDialog", { id: shortId(id) }));
       await api(`/api/jobs/${encodeURIComponent(id)}/print`, { method: "POST" });
     } catch (e) {
       const msg = e.message || String(e);
-      if (/cancel/i.test(msg)) log(`Job ${shortId(id)}: print cancelled`);
-      else log(`Job ${shortId(id)}: ${msg}`);
+      if (/cancel/i.test(msg)) log(t("jobPrintCancelled", { id: shortId(id) }));
+      else log(t("jobError", { id: shortId(id), msg }));
     }
   }
 
@@ -307,7 +602,7 @@
     try {
       await api(`/api/jobs/${encodeURIComponent(id)}/open`, { method: "POST" });
     } catch (e) {
-      log(`Open: ${e.message || e}`);
+      log(t("openError", { msg: e.message || e }));
     }
   }
 
@@ -318,13 +613,13 @@
     const remember = !!$("remember")?.checked;
     const apiBase = $("api-url")?.value.trim() || "";
     if (!username || !password) {
-      setLoginError("Username & password required");
+      setLoginError(t("loginRequired"));
       return;
     }
     const btn = $("btn-login");
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Connecting…";
+      btn.textContent = t("statusConnecting");
     }
     try {
       const data = await api("/api/login", {
@@ -332,13 +627,13 @@
         body: JSON.stringify({ username, password, apiBase, remember }),
       });
       applyStatus(data.status);
-      log("Login OK");
+      log(t("loginOk"));
     } catch (e) {
-      setLoginError(e.message || "Login failed");
-      log(`Login error: ${e.message || e}`);
+      setLoginError(e.message || t("loginFailed"));
+      log(t("loginError", { msg: e.message || e }));
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Connect";
+        btn.textContent = t("connectBtn");
       }
     }
   }
@@ -346,13 +641,13 @@
   async function logout() {
     try {
       await api("/api/logout", { method: "POST" });
-      setStatus("off", "Logged out");
-      log("Logged out");
+      setStatus("off", t("logoutDetail"));
+      log(t("loggedOut"));
       $("btn-logout")?.classList.add("hidden");
       const btn = $("btn-login");
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Connect";
+        btn.textContent = t("connectBtn");
       }
     } catch (e) {
       log(`Logout: ${e.message || e}`);
@@ -422,7 +717,7 @@
     const notes = $("update-notes");
 
     if (!info) {
-      if (detail) detail.textContent = "Could not check for updates.";
+      if (detail) detail.textContent = t("updateCheckFailed");
       banner?.classList.add("hidden");
       btn?.classList.add("hidden");
       notes?.classList.add("hidden");
@@ -432,7 +727,7 @@
     const cur = info.current || "dev";
     const latest = info.latest || "—";
     if (info.error && !info.latest) {
-      if (detail) detail.textContent = `Update check failed: ${info.error}`;
+      if (detail) detail.textContent = t("updateCheckFailedDetail", { msg: info.error });
       banner?.classList.add("hidden");
       btn?.classList.add("hidden");
       notes?.classList.add("hidden");
@@ -440,19 +735,20 @@
     }
 
     if (info.updateAvailable) {
-      const msg = `Update available: v${latest} (you have v${cur})`;
+      const msg = t("updateAvailableDetail", { latest, current: cur });
       if (detail) detail.textContent = msg;
       if (bannerDetail) bannerDetail.textContent = msg;
       banner?.classList.remove("hidden");
       btn?.classList.remove("hidden");
       btnNow?.classList.remove("hidden");
-      if (btn) btn.textContent = "How to update";
-      if (btnNow) btnNow.textContent = "How to update";
+      if (btn) btn.textContent = t("howToUpdate");
+      if (btnNow) btnNow.textContent = t("howToUpdate");
     } else {
       if (detail)
-        detail.textContent = `Up to date · v${cur}${
-          latest && latest !== "—" ? ` (latest v${latest})` : ""
-        }`;
+        detail.textContent =
+          latest && latest !== "—"
+            ? t("upToDateLatest", { current: cur, latest })
+            : t("upToDate", { current: cur });
       banner?.classList.add("hidden");
       btn?.classList.add("hidden");
     }
@@ -479,8 +775,8 @@
     if (summary) {
       summary.textContent =
         info && info.updateAvailable
-          ? `v${latest} is available (you have v${cur}). Download the binary or re-run the install command.`
-          : `Current v${cur}. You can still reinstall the latest release manually.`;
+          ? t("modalUpdateAvailable", { latest, current: cur })
+          : t("modalUpdateCurrent", { current: cur });
     }
     if (cmd) cmd.value = installCommand();
     if (dl) {
@@ -489,14 +785,16 @@
         dl.href = href;
         dl.classList.remove("disabled");
         dl.setAttribute("aria-disabled", "false");
-        dl.textContent = info.assetName ? `Download ${info.assetName}` : "Download binary";
+        dl.textContent = info.assetName
+          ? t("downloadNamed", { name: info.assetName })
+          : t("downloadBinary");
       } else {
         dl.href =
           (info && info.releaseUrl) ||
           "https://github.com/rayenking/nabooth-print-agent/releases/latest";
         dl.classList.remove("disabled");
         dl.setAttribute("aria-disabled", "false");
-        dl.textContent = "Open releases";
+        dl.textContent = t("openReleases");
       }
     }
     if (rel) {
@@ -517,7 +815,7 @@
     const detail = $("autostart-detail");
     const btn = $("btn-autostart");
     if (!info) {
-      if (detail) detail.textContent = "Could not read autostart status.";
+      if (detail) detail.textContent = t("autostartReadFailed");
       return;
     }
     if (!info.supported) {
@@ -525,26 +823,48 @@
         pill.className = "pill off";
         pill.textContent = "N/A";
       }
-      if (detail) detail.textContent = info.detail || "Autostart not supported on this OS.";
+      if (detail) detail.textContent = info.detail || t("autostartUnsupported");
       if (btn) {
         btn.disabled = true;
-        btn.textContent = "Not available";
+        btn.textContent = t("notAvailable");
       }
       return;
     }
     if (pill) {
       pill.className = `pill ${info.enabled ? "on" : "off"}`;
-      pill.textContent = info.enabled ? "On" : "Off";
+      pill.textContent = info.enabled ? t("on") : t("off");
     }
     const bits = [];
     if (info.detail) bits.push(info.detail);
-    if (info.method) bits.push(`method: ${info.method}`);
+    if (info.method) bits.push(t("method", { method: info.method }));
     if (info.path) bits.push(info.path);
-    if (detail) detail.textContent = bits.join(" · ") || (info.enabled ? "Enabled" : "Not installed");
+    if (detail)
+      detail.textContent =
+        bits.join(" · ") || (info.enabled ? t("enabled") : t("notInstalled"));
     if (btn) {
       btn.disabled = false;
-      btn.textContent = info.enabled ? "Remove background" : "Install background";
+      btn.textContent = info.enabled ? t("removeBackground") : t("installBackground");
       btn.className = info.enabled ? "ghost" : "primary";
+    }
+  }
+
+  async function loadUpdate(announce) {
+    try {
+      if (announce) log(t("checkingUpdatesLog"));
+      const info = await api("/api/update");
+      renderUpdate(info);
+    } catch (e) {
+      renderUpdate(null);
+      if (announce) log(t("updateCheckError", { msg: e.message || e }));
+    }
+  }
+
+  async function loadAutostart() {
+    try {
+      const info = await api("/api/autostart");
+      renderAutostart(info);
+    } catch {
+      renderAutostart(null);
     }
   }
 
@@ -557,14 +877,14 @@
       if (cur.enabled) {
         const info = await api("/api/autostart", { method: "DELETE" });
         renderAutostart(info);
-        log("Background / autostart removed");
+        log(t("backgroundRemoved"));
       } else {
         const info = await api("/api/autostart", { method: "POST" });
         renderAutostart(info);
-        log("Background / autostart installed");
+        log(t("backgroundInstalled"));
       }
     } catch (e) {
-      log(`autostart: ${e.message || e}`);
+      log(t("autostartError", { msg: e.message || e }));
       await loadAutostart();
     } finally {
       if (btn) btn.disabled = false;
@@ -576,17 +896,26 @@
     const text = input?.value || installCommand();
     try {
       await navigator.clipboard.writeText(text);
-      log("Install command copied");
+      log(t("installCopied"));
     } catch {
       if (input) {
         input.focus();
         input.select();
       }
-      log("Copy failed — select the command and copy manually");
+      log(t("copyFailed"));
     }
   }
 
   async function boot() {
+    applyStaticI18n();
+
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const next = btn.getAttribute("data-lang");
+        if (next) setLang(next);
+      });
+    });
+
     try {
       const health = await api("/api/health");
       if (health.version) $("version").textContent = `v${health.version}`;
@@ -597,7 +926,7 @@
       const st = await api("/api/status");
       applyStatus(st);
     } catch (e) {
-      log(`status: ${e.message || e}`);
+      log(t("statusError", { msg: e.message || e }));
     }
     try {
       const data = await api("/api/jobs");

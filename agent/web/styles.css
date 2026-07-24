@@ -67,10 +67,50 @@ body {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background:
-    linear-gradient(145deg, #f472b6 0%, var(--rose) 45%, var(--rose-deep) 100%);
-  box-shadow: 0 8px 18px rgba(236, 72, 153, 0.28);
+  object-fit: contain;
+  background: var(--rose-soft);
+  box-shadow: 0 8px 18px rgba(236, 72, 153, 0.18);
   flex-shrink: 0;
+  display: block;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.lang-toggle {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.lang-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 5px 9px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.lang-btn + .lang-btn {
+  border-left: 1px solid var(--line);
+}
+
+.lang-btn.active {
+  background: var(--rose-soft);
+  color: var(--rose-deep);
 }
 
 .brand h1 {
