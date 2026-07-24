@@ -193,6 +193,15 @@
       printersError: "Printers: {msg}",
       listPrintersError: "list printers: {msg}",
       printerSet: "Printer set: {name}",
+      setPrinterError: "set printer: {msg}",
+      none: "(none)",
+      stateReceiving: "Receiving…",
+      stateReady: "Ready to print",
+      statePrinting: "Printing…",
+      stateDone: "Done",
+      stateFailed: "Failed",
+      print: "Print…",
+      open: "Open",
       delete: "Delete",
       deleteSelected: "Delete selected",
       selectAll: "Select all",
@@ -206,16 +215,7 @@
       jobPrintCancelled: "Job {id}: print cancelled",
       jobError: "Job {id}: {msg}",
       openError: "Open: {msg}",
-      deleteError: "DeletePrinting…",
-      stateDone: "Done",
-      stateFailed: "Failed",
-      print: "Print…",
-      open: "Open",
-      stripAlt: "Strip",
-      jobPrintDialog: "Job {id}: opening system Print dialog…",
-      jobPrintCancelled: "Job {id}: print cancelled",
-      jobError: "Job {id}: {msg}",
-      openError: "Open: {msg}",
+      deleteError: "Delete: {msg}",
       updateCheckFailed: "Could not check for updates.",
       updateCheckFailedDetail: "Update check failed: {msg}",
       updateAvailableDetail: "Update available: v{latest} (you have v{current})",
@@ -299,8 +299,7 @@
       $("printer-hint").textContent = t("printerHint");
     }
   }
-selected: new Set(),
-    
+
   const state = {
     online: false,
     connecting: false,
@@ -309,6 +308,7 @@ selected: new Set(),
     apiBase: "https://nabooth.id",
     remember: false,
     jobs: [],
+    selected: new Set(),
     update: null,
     autostart: null,
     lastStatus: null,
@@ -508,7 +508,8 @@ selected: new Set(),
         return st || "—";
     }
   }
-pruneSelection() {
+
+  function pruneSelection() {
     const ids = new Set(state.jobs.map((j) => j.id));
     for (const id of [...state.selected]) {
       if (!ids.has(id)) state.selected.delete(id);
@@ -625,7 +626,34 @@ pruneSelection() {
     meta.appendChild(detail);
 
     const actions = document.createElement("div");
-    actions.classdeleteJob(id) {
+    actions.className = "job-actions";
+    if (job.state === "ready" || job.state === "failed" || job.state === "done") {
+      const btnPrint = document.createElement("button");
+      btnPrint.type = "button";
+      btnPrint.className = "primary";
+      btnPrint.textContent = t("print");
+      btnPrint.addEventListener("click", () => void printJob(job.id));
+      const btnOpen = document.createElement("button");
+      btnOpen.type = "button";
+      btnOpen.className = "ghost";
+      btnOpen.textContent = t("open");
+      btnOpen.addEventListener("click", () => void openJob(job.id));
+      actions.appendChild(btnPrint);
+      actions.appendChild(btnOpen);
+    }
+    const btnDelete = document.createElement("button");
+    btnDelete.type = "button";
+    btnDelete.className = "danger ghost";
+    btnDelete.textContent = t("delete");
+    btnDelete.addEventListener("click", () => void deleteJob(job.id));
+    actions.appendChild(btnDelete);
+    meta.appendChild(actions);
+
+    card.appendChild(meta);
+    return card;
+  }
+
+  async function deleteJob(id) {
     if (!window.confirm(t("confirmDeleteOne"))) return;
     try {
       const data = await api(`/api/jobs/${encodeURIComponent(id)}/delete`, {
@@ -667,34 +695,6 @@ pruneSelection() {
     } catch (e) {
       log(t("deleteError", { msg: e.message || e }));
     }
-  }
-
-  async function Name = "job-actions";
-    if (job.state === "ready" || job.state === "failed" || job.state === "done") {
-      const btnPrint = document.createElement("button");
-      btnPrint.type = "button";
-      btnPrint.className = "primary";
-      btnPrint.textContent = t("print");
-      btnPrint.addEventListener("click", () => void printJob(job.id));
-      const btnOpen = document.createElement("button");
-      btnOpen.type = "button";
-      btnOpen.className = "ghost";
-      btnOpen.textContent = t("open");
-      btnOpen.addEventListener("click", () => void openJob(job.id));
-      actions.appendChild(btnPrint);
-      actions.appendChild(btnOpen);
-    }
-    const btnDelete = document.createElement("button");
-    btnDelete.type = "button";
-    btnDelete.className = "danger ghost";
-    btnDelete.textContent = t("delete");
-    btnDelete.addEventListener("click", () => void deleteJob(job.id));
-    actions.appendChild(btnDelete);
-    meta.appendChild(actions); meta.appendChild(actions);
-    }
-
-    card.appendChild(meta);
-    return card;
   }
 
   function placeholderThumb() {
@@ -749,11 +749,7 @@ pruneSelection() {
       setLoginError(e.message || t("loginFailed"));
       log(t("loginError", { msg: e.message || e }));
       if (btn) {
-        btn.disabled = fjobs") {
-        renderJobs(msg.jobs || []);
-        return;
-      }
-      if (msg.type === "alse;
+        btn.disabled = false;
         btn.textContent = t("connectBtn");
       }
     }
@@ -1055,19 +1051,21 @@ pruneSelection() {
     } catch {
       /* ignore */
     }
-    await loadPrinters();
-    await Promise.all([loadUpdate(false), loadAutostart()]);
+    await Promise.allSettled([
+      loadPrinters(),
+      loadUpdate(false),
+      loadAutostart(),
+    ]);
     connectEvents();
 
     setInterval(() => void loadUpdate(false), 45 * 60 * 1000);
     window.addEventListener("focus", () => void loadUpdate(false));
-delete-selected")?.addEventListener("click", () => void deleteSelectedJobs());
+    $("btn-delete-selected")?.addEventListener("click", () => void deleteSelectedJobs());
     $("jobs-select-all")?.addEventListener("change", (e) => {
       const on = !!e.target.checked;
       state.selected = on ? new Set(state.jobs.map((j) => j.id)) : new Set();
       renderJobs(state.jobs);
     });
-    $("btn-
     $("btn-login")?.addEventListener("click", () => void login());
     $("btn-logout")?.addEventListener("click", () => void logout());
     $("btn-refresh-printers")?.addEventListener("click", () => void loadPrinters());
