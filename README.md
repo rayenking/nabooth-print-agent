@@ -20,7 +20,9 @@ curl -fsSL https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/
 irm https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.ps1 | iex
 ```
 
-The installer downloads the latest Go agent binary, starts it, and opens the control panel.
+The installer downloads the latest Go agent binary from GitHub Releases, starts it, and opens the control panel.
+
+Release assets are produced by [`.github/workflows/agent.yml`](.github/workflows/agent.yml) on tags matching `v*`.
 
 ## First-time setup
 
@@ -68,7 +70,7 @@ chmod +x nabooth-print-agent-darwin-arm64
 
 Standalone repo (split from [nabooth](https://github.com/rayenking/nabooth)). API / dashboard stay in nabooth; this repo is the printer-side agent.
 
-### Localhost agent (primary)
+### Local development
 
 ```bash
 cd agent
@@ -100,7 +102,7 @@ Config file:
 ### Layout
 
 ```
-agent/                 # Go localhost agent (primary)
+agent/                 # Go localhost agent
   main.go
   config.go
   printers.go
@@ -112,7 +114,6 @@ agent/                 # Go localhost agent (primary)
 install.sh
 install.ps1
 .github/workflows/agent.yml
-src/ + src-tauri/      # legacy Tauri desktop app (kept for now)
 ```
 
 ### Agent CI
@@ -124,21 +125,7 @@ Workflow: [`.github/workflows/agent.yml`](.github/workflows/agent.yml)
 | Push `main` (agent paths) / manual | Artifacts: `nabooth-print-agent-{os}-{arch}` |
 | Tag `v*` | Artifacts **+** attach binaries to GitHub Release |
 
-### Legacy Tauri app
-
-Still in-repo for transition. Prefer the Go agent for operators.
-
-```bash
-pnpm install
-pnpm tauri dev
-```
-
-| Mode | API |
-|------|-----|
-| **Release** (`pnpm tauri build`) | fixed `https://nabooth.id` |
-| **Dev** (`pnpm tauri dev`) | default `http://localhost:5050` |
-
-Tauri installer CI: [`.github/workflows/build.yml`](.github/workflows/build.yml). Signing notes: [SIGNING.md](./SIGNING.md).
+Installers (`install.sh` / `install.ps1`) need those release assets on a `v*` tag.
 
 ### Protocol (must match nabooth API)
 
