@@ -1,8 +1,8 @@
 # Build localhost Go Print Agent binaries.
-# Coexists with Tauri build.yml.
 #
 # Triggers: push main, tags v*, workflow_dispatch
-# Tag releases attach agent assets alongside any existing release.
+# Tag releases attach agent assets to the GitHub Release.
+# No path filter: tag pushes must always build even if tip commit is docs-only.
 name: Agent
 
 on:
@@ -12,11 +12,6 @@ on:
       - main
     tags:
       - "v*"
-    paths:
-      - "agent/**"
-      - ".github/workflows/agent.yml"
-      - "install.sh"
-      - "install.ps1"
 
 concurrency:
   group: agent-${{ github.ref }}
