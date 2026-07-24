@@ -8,6 +8,9 @@
     apiBase: "https://nabooth.id",
     remember: false,
     jobs: [],
+    update: null,
+    autostart: null,
+    updating: false,
   };
 
   function log(msg) {
@@ -383,7 +386,184 @@
     };
     es.onerror = () => {
       // browser auto-reconnects
-    };
+  function renderUpdate(info) {
+    state.update = info || null;
+    const banner = $("update-banner");
+    const bannerDetail = $("update-banner-detail");
+    const bannerLink = $("update-release-link");
+    const detail = $("update-detail");
+    const btn = $("btn-update");
+    const btnNow = $("btn-update-now");
+    const notes = $("update-notes");
+
+    if (!info) {
+      if (detail) detail.textContent = "Could not check for updates.";
+      banner?.classList.add("hidden");
+      btn?.classList.add("hidden");
+      notes?.classList.add("hidden");
+      return;
+    }
+
+    const cur = info.current || "dev";
+    const latest = info.latest || "—";
+    if (info.error && !info.latest) {
+      if (detail) detail.textContent = `Update check failed: ${info.error}`;
+      banner?.classList.add("hidden");
+      btn?.classList.add("hidden");
+      notes?.classList.add("hidden");
+      return;
+    }
+
+    if (info.updateAvailable) {
+      const msg = `Update available: v${latest} (you have v${cur})`;
+      if (detail) detail.textContent = msg;
+      if (bannerDetail) bannerDetail.textContent = msg;
+      banner?.classList.remove("hidden");
+      btn?.classList.remove("hidden");
+      btnNow?.classList.remove("hidden");
+      if (btn) btn.disabled = !!state.updating;
+      if (btnNow) btnNow.disabled = !!state.updating;
+      if (btn) btn.textContent = state.updating ? "Updating…" : "Update now";
+      if (btnNow) btnNow.textContent = state.updating ? "Updating…" : "Update now";
+    } else {
+      if (detail) detail.textContent = `Up to date · v${cur}${latest && latest !== "—" ? ` (latest v${latest})` : ""}`;
+      banner?.classList.add("hidden");
+      btn?.classList.add("hidden");
+    }
+
+    const url = info.releaseUrl || "";
+    for (const el of [notes, bannerLink]) {
+      if (!el) continue;
+      if (url) {
+        el.href = url;
+        el.classList.remove("hidden");
+      } else {
+        el.classList.add("hidden");
+      }
+    }
+  }
+
+  function renderAutostart(info) {
+    state.autostart = info || null;
+    const pill = $("autostart-pill");
+    const detail = $("autostart-detail");
+    const btn = $("btn-autostart");
+    if (!info) {
+      if (detail) detail.textContent = "Could not read autostart status.";
+      return;
+    }
+    if (!info.supported) {
+      if (pill) {
+        pill.className = "pill off";
+        pill.textContent = "N/A";
+      }
+      if (detail) detail.textContent = info.detail || "Autostart not supported on this OS.";
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Not available";
+      }
+      return;
+    }
+    if (pill) {
+      pill.className = `pill ${info.enabled ? "on" : "off"}`;
+      pill.textContent = info.enabled ? "On" : "Off";
+    }
+    const bits = [];
+    if (info.detail) bits.push(info.detail);
+    if (info.method) bits.push(`method: ${info.method}`);
+    if (info.path) bits.push(info.path);
+    if (detail) detail.textContent = bits.join(" · ") || (info.enabled ? "Enabled" : "Not installed");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = info.enabled ? "Remove background" : "Install background";
+      btn.className = info.enabled ? "ghost" : "primary";
+    }
+  }
+
+  async function loadUpdate(force = false) {
+    try {
+      const q = force ? "?force=1" : "";
+      const info = await api(`/api/update${q}`);
+      renderUpdate(info);
+    } catch (e) {
+      renderUpdate({ error: e.message || String(e) });
+      log(`update check: ${e.message || e}`);
+    }
+  }
+
+  async function loadAutostart() {
+    try {
+      const info = await api("/api/autostart");
+      renderAutostart(info);
+    } catch (e) {
+      renderAutostart(null);
+      log(`autostart: ${e.message || e}`);
+    }
+  }
+
+  async function applyUpdateNow() {
+    if (state.updating) return;
+    state.updating = true;
+    renderUpdate(state.update);
+    log("Downloading and applying update…");
+    try {
+      const data = await api("/api/update", { method: "POST" });
+      if (data && data.restarting) {
+        log("Update applied — agent restarting. Reconnecting…");
+        // Poll health until new process is up
+        let tries = 0;
+        const tick = async () => {
+          tries += 1;
+          try {
+            const h = await api("/api/health");
+            log(`Agent back online · v${h.version || "?"}`);
+            state.updating = false;
+            await loadUpdate(true);
+            connectEvents();
+            return;
+          } catch {
+            if (tries < 40) setTimeout(() => void tick(), 500);
+            else {
+              state.updating = false;
+              log("Agent did not come back — start it again if needed.");
+              renderUpdate(state.update);
+            }
+          }
+        };
+        setTimeout(() => void tick(), 800);
+      } else {
+        state.updating = false;
+        log("Update finished");
+        await loadUpdate(true);
+      }
+    } catch (e) {
+      state.updating = false;
+      log(`Update failed: ${e.message || e}`);
+      renderUpdate(state.update);
+    }
+  }
+
+  async function toggleAutostart() {
+    const cur = state.autostart;
+    if (!cur || !cur.supported) return;
+    const btn = $("btn-autostart");
+    if (btn) btn.disabled = true;
+    try {
+      if (cur.enabled) {
+        const info = await api("/api/autostart", { method: "DELETE" });
+        renderAutostart(info);
+        log("Background / autostart removed");
+      } else {
+        const info = await api("/api/autostart", { method: "POST" });
+        renderAutostart(info);
+        log("Background / autostart installed");
+      }
+    } catch (e) {
+      log(`autostart: ${e.message || e}`);
+      await loadAutostart();
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function boot() {
@@ -406,11 +586,22 @@
       /* ignore */
     }
     await loadPrinters();
+    await Promise.all([loadUpdate(false), loadAutostart()]);
     connectEvents();
+
+    // Recheck updates every 45 min and on window focus
+    setInterval(() => void loadUpdate(false), 45 * 60 * 1000);
+    window.addEventListener("focus", () => void loadUpdate(false));
 
     $("btn-login")?.addEventListener("click", () => void login());
     $("btn-logout")?.addEventListener("click", () => void logout());
     $("btn-refresh-printers")?.addEventListener("click", () => void loadPrinters());
+    $("btn-clear-log")?.addEventListener("click", () => {
+      if ($("log")) $("log").textContent = "";
+    });
+    $("btn-update")?.addEventListener("click", () => void applyUpdateNow());
+    $("btn-update-now")?.addEventListener("click", () => void applyUpdateNow());
+    $("btn-autostart")?.addEventListener("click", () => void toggleAutostart()("btn-refresh-printers")?.addEventListener("click", () => void loadPrinters());
     $("btn-clear-log")?.addEventListener("click", () => {
       if ($("log")) $("log").textContent = "";
     });

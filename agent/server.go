@@ -36,6 +36,8 @@ func NewServer(agent *Agent, port int) *Server {
 	mux.HandleFunc("/api/jobs", s.handleJobs)
 	mux.HandleFunc("/api/jobs/", s.handleJobAction)
 	mux.HandleFunc("/api/events", s.handleEvents)
+	mux.HandleFunc("/api/update", s.handleUpdate)
+	mux.HandleFunc("/api/autostart", s.handleAutostart)
 	mux.HandleFunc("/", s.handleStatic)
 
 	s.server = &http.Server{
@@ -220,6 +222,79 @@ func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 	default:
 		writeErr(w, http.StatusNotFound, "not found")
+	}
+}
+
+func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		force := r.URL.Query().Get("force") == "1"
+		writeJSON(w, http.StatusOK, fetchLatestRelease(force))
+	case http.MethodPost:
+		s.agent.Log("Applying update…")
+		if err := applyUpdate(func(msg string) { s.agent.Log(msg) }); err != nil {
+			s.agent.Log("Update failed: " + err.Error())
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "restarting": true})
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+	}
+}
+
+func (s *Server) handleAutostart(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, autostartStatus())
+	case http.MethodPost:
+		st, err := installAutostart()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"ok":        false,
+				"error":     err.Error(),
+				"enabled":   st.Enabled,
+				"supported": st.Supported,
+				"method":    st.Method,
+				"path":      st.Path,
+				"detail":    st.Detail,
+			})
+			return
+		}
+		s.agent.Log("Background / autostart installed")
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":        true,
+			"enabled":   st.Enabled,
+			"supported": st.Supported,
+			"method":    st.Method,
+			"path":      st.Path,
+			"detail":    st.Detail,
+		})
+	case http.MethodDelete:
+		st, err := removeAutostart()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"ok":        false,
+				"error":     err.Error(),
+				"enabled":   st.Enabled,
+				"supported": st.Supported,
+				"method":    st.Method,
+				"path":      st.Path,
+				"detail":    st.Detail,
+			})
+			return
+		}
+		s.agent.Log("Background / autostart removed")
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":        true,
+			"enabled":   st.Enabled,
+			"supported": st.Supported,
+			"method":    st.Method,
+			"path":      st.Path,
+			"detail":    st.Detail,
+		})
+	default:
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 

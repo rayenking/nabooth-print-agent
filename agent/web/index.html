@@ -23,6 +23,17 @@
       </div>
     </header>
 
+    <div id="update-banner" class="update-banner hidden" role="status">
+      <div class="update-banner-text">
+        <strong>Update available</strong>
+        <span id="update-banner-detail"></span>
+      </div>
+      <div class="update-banner-actions">
+        <a id="update-release-link" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Notes</a>
+        <button type="button" class="primary tiny" id="btn-update-now">Update now</button>
+      </div>
+    </div>
+
     <main class="grid">
       <section class="card" id="printer-card">
         <div class="card-head">
@@ -71,6 +82,32 @@
         </div>
         <div id="jobs" class="jobs">
           <p id="jobs-empty" class="empty">Waiting for booth prints…</p>
+        </div>
+      </section>
+
+      <section class="card span-2" id="bg-card">
+        <div class="card-head">
+          <h2>Background &amp; updates</h2>
+          <span id="autostart-pill" class="pill off">Off</span>
+        </div>
+        <div class="bg-block">
+          <h3 class="subhead">Start at login</h3>
+          <p class="hint">
+            Installs a login item so Print Agent starts automatically when this PC boots.
+            Needed so booth print jobs still arrive without opening Terminal.
+          </p>
+          <p id="autostart-detail" class="detail-line">Checking…</p>
+          <div class="row-actions">
+            <button type="button" class="primary" id="btn-autostart">Install background</button>
+          </div>
+        </div>
+        <div class="bg-block">
+          <h3 class="subhead">Software update</h3>
+          <p id="update-detail" class="detail-line">Checking for updates…</p>
+          <div class="row-actions">
+            <button type="button" class="primary hidden" id="btn-update">Update now</button>
+            <a id="update-notes" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Release notes</a>
+          </div>
         </div>
       </section>
 
