@@ -37,32 +37,49 @@ else
 fi
 BIN_PATH="${BIN_DIR}/${NAME}"
 
-# Resolve latest release tag + download URL
-api="https://api.github.com/repos/${REPO}/releases/latest"
+# Resolve latest release tag + download URL.
+# Prefer HTML redirect for the tag (no JSON parse). API is fallback only.
+# macOS/BSD sed cannot match GitHub's minified single-line release JSON.
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+api="https://api.github.com/repos/${REPO}/releases/latest"
+ua="nabooth-print-agent-install"
 
-if command -v curl >/dev/null 2>&1; then
-  json=$(curl -fsSL "$api" || true)
-elif command -v wget >/dev/null 2>&1; then
-  json=$(wget -qO- "$api" || true)
-else
-  die "need curl or wget"
-fi
+have_curl=0
+have_wget=0
+command -v curl >/dev/null 2>&1 && have_curl=1
+command -v wget >/dev/null 2>&1 && have_wget=1
+[ "$have_curl" -eq 1 ] || [ "$have_wget" -eq 1 ] || die "need curl or wget"
 
+tag=""
 download_url=""
-if [ -n "${json:-}" ]; then
-  # Prefer exact asset name match from release JSON
-  download_url=$(printf '%s' "$json" | sed -n "s/.*\"browser_download_url\": \"\\([^\"]*${asset}\\)\".*/\\1/p" | head -n1)
+
+# 1) Prefer GitHub HTML redirect for latest tag (works without JSON parse)
+if [ "$have_curl" -eq 1 ]; then
+  latest_url=$(curl -fsSL -o /dev/null -w '%{url_effective}' "https://github.com/${REPO}/releases/latest" || true)
+  tag=$(printf '%s\n' "$latest_url" | sed 's|.*/||')
+  case "$tag" in
+    latest|"") tag="" ;;
+  esac
 fi
 
-if [ -z "$download_url" ]; then
-  # Fallback: conventional release asset URL (tag unknown → try latest redirect path)
-  # Users without a published agent binary get a clear message.
-  tag=$(printf '%s' "${json:-}" | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p' | head -n1)
-  if [ -n "$tag" ]; then
-    download_url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
+# 2) Fallback: API + split minified JSON by commas before sed
+json=""
+if [ -z "$tag" ]; then
+  if [ "$have_curl" -eq 1 ]; then
+    json=$(curl -fsSL -H "User-Agent: ${ua}" "$api" || true)
+  else
+    json=$(wget -qO- --header="User-Agent: ${ua}" "$api" || true)
   fi
+  if [ -n "${json:-}" ]; then
+    tag=$(printf '%s' "$json" | tr ',' '\n' | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n1)
+    download_url=$(printf '%s' "$json" | tr ',' '\n' | sed -n "s/.*\"browser_download_url\": *\"\\([^\"]*${asset}\\)\".*/\\1/p" | head -n1)
+  fi
+fi
+
+# 3) Conventional release asset URL from resolved tag
+if [ -z "$download_url" ] && [ -n "$tag" ]; then
+  download_url="https://github.com/${REPO}/releases/download/${tag}/${asset}"
 fi
 
 if [ -z "$download_url" ]; then
@@ -81,7 +98,7 @@ EOF
 fi
 
 info "Downloading ${download_url}"
-if command -v curl >/dev/null 2>&1; then
+if [ "$have_curl" -eq 1 ]; then
   curl -fL --progress-bar -o "${tmp}/${asset}" "$download_url" || die "download failed"
 else
   wget -O "${tmp}/${asset}" "$download_url" || die "download failed"
