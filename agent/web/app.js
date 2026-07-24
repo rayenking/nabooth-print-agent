@@ -10,8 +10,6 @@
     jobs: [],
     update: null,
     autostart: null,
-    uninstall: null,
-    uninstalling: false,
   };
 
   function log(msg) {
@@ -550,55 +548,6 @@
     }
   }
 
-  function renderUninstall(info) {
-    state.uninstall = info || null;
-    const detail = $("uninstall-detail");
-    const paths = $("modal-uninstall-paths");
-    if (!info) {
-      if (detail) detail.textContent = "Could not read uninstall info.";
-      return;
-    }
-    const bits = [];
-    if (info.configDir) bits.push(`config: ${info.configDir}`);
-    if (info.binaryPath) bits.push(`binary: ${info.binaryPath}`);
-    if (info.autostartEnabled) bits.push("autostart: on");
-    if (info.detail) bits.push(info.detail);
-    const text = bits.join(" · ") || "Ready";
-    if (detail) detail.textContent = text;
-    if (paths) paths.textContent = text;
-  }
-
-  async function loadUpdate(force = false) {
-    try {
-      const q = force ? "?force=1" : "";
-      const info = await api(`/api/update${q}`);
-      renderUpdate(info);
-    } catch (e) {
-      renderUpdate({ error: e.message || String(e) });
-      log(`update check: ${e.message || e}`);
-    }
-  }
-
-  async function loadAutostart() {
-    try {
-      const info = await api("/api/autostart");
-      renderAutostart(info);
-    } catch (e) {
-      renderAutostart(null);
-      log(`autostart: ${e.message || e}`);
-    }
-  }
-
-  async function loadUninstall() {
-    try {
-      const info = await api("/api/uninstall");
-      renderUninstall(info);
-    } catch (e) {
-      renderUninstall(null);
-      log(`uninstall info: ${e.message || e}`);
-    }
-  }
-
   async function toggleAutostart() {
     const cur = state.autostart;
     if (!cur || !cur.supported) return;
@@ -619,33 +568,6 @@
       await loadAutostart();
     } finally {
       if (btn) btn.disabled = false;
-    }
-  }
-
-  async function confirmUninstall() {
-    if (state.uninstalling) return;
-    state.uninstalling = true;
-    const btn = $("btn-uninstall-confirm");
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Uninstalling…";
-    }
-    log("Uninstalling…");
-    try {
-      const res = await api("/api/uninstall", { method: "POST" });
-      log(res.detail || "Uninstall finished — agent stopping");
-      closeModal("uninstall");
-      setStatus("off", "Uninstalled");
-      if ($("uninstall-detail")) {
-        $("uninstall-detail").textContent = res.detail || "Agent stopped";
-      }
-    } catch (e) {
-      log(`Uninstall failed: ${e.message || e}`);
-      state.uninstalling = false;
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Yes, uninstall";
-      }
     }
   }
 
@@ -684,7 +606,7 @@
       /* ignore */
     }
     await loadPrinters();
-    await Promise.all([loadUpdate(false), loadAutostart(), loadUninstall()]);
+    await Promise.all([loadUpdate(false), loadAutostart()]);
     connectEvents();
 
     setInterval(() => void loadUpdate(false), 45 * 60 * 1000);
@@ -700,10 +622,6 @@
     $("btn-update-now")?.addEventListener("click", () => showUpdateModal());
     $("btn-check-update")?.addEventListener("click", () => void loadUpdate(true));
     $("btn-autostart")?.addEventListener("click", () => void toggleAutostart());
-    $("btn-uninstall")?.addEventListener("click", () => {
-      void loadUninstall().then(() => openModal("uninstall"));
-    });
-    $("btn-uninstall-confirm")?.addEventListener("click", () => void confirmUninstall());
     $("btn-copy-install")?.addEventListener("click", () => void copyInstallCmd());
     document.querySelectorAll("[data-close]").forEach((el) => {
       el.addEventListener("click", () => closeModal(el.getAttribute("data-close")));
@@ -711,7 +629,6 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         closeModal("update");
-        closeModal("uninstall");
       }
     });
     $("printer")?.addEventListener("change", (e) => {

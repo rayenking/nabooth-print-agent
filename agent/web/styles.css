@@ -540,16 +540,6 @@ a.linkish:hover {
 }
 
 
-button.danger {
-  background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
-  color: #fff;
-  box-shadow: 0 6px 14px rgba(220, 38, 38, 0.22);
-}
-
-button.danger:hover:not(:disabled) {
-  background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%);
-}
-
 .modal {
   position: fixed;
   inset: 0;
@@ -597,8 +587,7 @@ button.danger:hover:not(:disabled) {
   letter-spacing: -0.01em;
 }
 
-.modal-steps,
-.modal-list {
+.modal-steps {
   margin: 0;
   padding-left: 1.15rem;
   color: var(--ink-soft);

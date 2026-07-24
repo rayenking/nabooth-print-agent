@@ -38,7 +38,6 @@ func NewServer(agent *Agent, port int) *Server {
 	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/update", s.handleUpdate)
 	mux.HandleFunc("/api/autostart", s.handleAutostart)
-	mux.HandleFunc("/api/uninstall", s.handleUninstall)
 	mux.HandleFunc("/", s.handleStatic)
 
 	s.server = &http.Server{
@@ -235,22 +234,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, fetchLatestRelease(force))
 }
 
-func (s *Server) handleUninstall(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		writeJSON(w, http.StatusOK, uninstallInfo())
-	case http.MethodPost:
-		s.agent.Log("Uninstall requested…")
-		res := runUninstall()
-		s.agent.Log("Uninstall: " + res.Detail)
-		writeJSON(w, http.StatusOK, res)
-		scheduleExit()
-	default:
-		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
-}
-
-
 func (s *Server) handleAutostart(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
@@ -374,6 +357,11 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := fs.ReadFile(sub, upath)
 	if err != nil {
+		// Unknown /api/* must 404 (not SPA fallback to index.html).
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			http.NotFound(w, r)
+			return
+		}
 		data, err = fs.ReadFile(sub, "index.html")
 		if err != nil {
 			http.NotFound(w, r)

@@ -93,7 +93,7 @@
         <div class="bg-block">
           <h3 class="subhead">Start at login</h3>
           <p class="hint">
-            Installs a login item so Print Agent starts automatically when this PC boots.
+            Install background so Print Agent starts at login. Remove background turns that off.
             Needed so booth print jobs still arrive without opening Terminal.
           </p>
           <p id="autostart-detail" class="detail-line">Checking…</p>
@@ -108,14 +108,6 @@
             <button type="button" class="primary hidden" id="btn-update">How to update</button>
             <button type="button" class="ghost tiny" id="btn-check-update">Check again</button>
             <a id="update-notes" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Release notes</a>
-          </div>
-        </div>
-        <div class="bg-block">
-          <h3 class="subhead">Uninstall</h3>
-          <p class="hint">Removes login autostart, local config, and stops this agent. Binary delete is best-effort.</p>
-          <p id="uninstall-detail" class="detail-line">—</p>
-          <div class="row-actions">
-            <button type="button" class="danger" id="btn-uninstall">Uninstall…</button>
           </div>
         </div>
       </section>
@@ -161,28 +153,6 @@
         <a id="modal-update-release" class="ghost tiny linkish" href="#" target="_blank" rel="noopener">Release notes</a>
       </div>
       <p class="hint">Self-update is disabled. Updates are manual on purpose.</p>
-    </div>
-  </div>
-
-  <div id="modal-uninstall" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-uninstall-title">
-    <div class="modal-backdrop" data-close="uninstall"></div>
-    <div class="modal-card">
-      <div class="modal-head">
-        <h2 id="modal-uninstall-title">Uninstall Print Agent?</h2>
-        <button type="button" class="ghost tiny" data-close="uninstall" aria-label="Close">Close</button>
-      </div>
-      <p class="hint">This will:</p>
-      <ul class="modal-list">
-        <li>Remove login / startup autostart</li>
-        <li>Delete local config (saved login, jobs cache)</li>
-        <li>Stop the agent process</li>
-        <li>Try to delete the binary (best-effort)</li>
-      </ul>
-      <p id="modal-uninstall-paths" class="detail-line">—</p>
-      <div class="row-actions">
-        <button type="button" class="danger" id="btn-uninstall-confirm">Yes, uninstall</button>
-        <button type="button" class="ghost" data-close="uninstall">Cancel</button>
-      </div>
     </div>
   </div>
 
