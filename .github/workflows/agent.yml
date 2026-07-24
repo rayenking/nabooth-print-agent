@@ -1,0 +1,122 @@
+# Build localhost Go Print Agent binaries.
+# Coexists with Tauri build.yml.
+#
+# Triggers: push main, tags v*, workflow_dispatch
+# Tag releases attach agent assets alongside any existing release.
+name: Agent
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+    paths:
+      - "agent/**"
+      - ".github/workflows/agent.yml"
+      - "install.sh"
+      - "install.ps1"
+
+concurrency:
+  group: agent-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: arm64
+            runner: ubuntu-latest
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            runner: ubuntu-latest
+            ext: ""
+          - goos: linux
+            goarch: amd64
+            runner: ubuntu-latest
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            runner: ubuntu-latest
+            ext: ".exe"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache-dependency-path: agent/go.sum
+
+      - name: Version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            V="0.0.0-${GITHUB_SHA::7}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Building nabooth-print-agent v$V (${{ matrix.goos }}/${{ matrix.goarch }})"
+
+      - name: Build
+        working-directory: agent
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="nabooth-print-agent-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          go build -trimpath \
+            -ldflags "-s -w -X main.version=${{ steps.ver.outputs.version }}" \
+            -o "../dist/${OUT}" .
+          ls -la "../dist/${OUT}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nabooth-print-agent-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Attach release assets
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: nabooth-print-agent-*
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -la artifacts
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true

@@ -92,9 +92,12 @@ Repo → **Settings → Secrets and variables → Actions → New repository sec
 | Secrets | Result |
 |---------|--------|
 | None | Build succeeds, **unsigned** artifacts (warnings on open) |
-| Partial (e.g. cert without password) | Job **fails** (misconfiguration) |
-| Full macOS set | Tauri signs during `tauri build`; notarizes when Apple ID/password/team present |
+| Partial (e.g. cert without password/identity) | Build succeeds **unsigned**; CI logs a warning (does not fail) |
+| Full macOS sign set (`APPLE_CERTIFICATE` + password + `APPLE_SIGNING_IDENTITY`) | Import keychain → signed `tauri build`; notarizes when Apple ID/password/team present |
+| Full macOS set but cert import fails | Falls back to **unsigned** (warn) so bad/partial material cannot break the matrix |
+| Full macOS set, import OK, codesign fails | Job **fails** (real misconfiguration) |
 | Full Windows set | CI signs collected `.msi` and `*-setup.exe` with `signtool` + DigiCert timestamp |
+| Full Windows set but `signtool` fails | Job **fails** |
 
 Find the macOS identity string:
 
@@ -143,7 +146,9 @@ Until secrets are configured, tell operators: **Right-click → Open** (macOS) o
 
 ---
 
-## CI notes (maintainers)
+## CI notimport only when all three sign secrets are present; `signing=true` gates a **separate** signed Tauri step so partial `APPLE_*` never enters the build env.
+- Invalid cert import falls back to unsigned; successful import + codesign failure fails the job.
+- Windows: both cert + password required to attempt sign; partial set skips unsigned; complete set + `signtool` failure fails the job
 
 - Secrets are never printed in logs.
 - macOS: temporary keychain import → `pnpm tauri build` with Apple env → keychain deleted in `always()`.

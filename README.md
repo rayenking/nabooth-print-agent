@@ -1,48 +1,63 @@
 # Nabooth Print Agent
 
-App for the PC connected to your photo printer. Lets the Nabooth booth print photo strips from iPad/phone to that printer.
+Runs on the PC connected to your photo printer. Receives booth print jobs from Nabooth and opens the system print dialog.
+
+Control panel: **http://127.0.0.1:17890** (localhost only)
 
 [![Latest release](https://img.shields.io/github/v/release/rayenking/nabooth-print-agent)](https://github.com/rayenking/nabooth-print-agent/releases/latest)
 
-## Download (latest)
+## Install (recommended)
 
-| Your computer | Download |
-|---------------|----------|
-| **Windows** (most PCs) | [Download for Windows](https://github.com/rayenking/nabooth-print-agent/releases/latest) — pick `Nabooth-Print-Agent-Windows-x64.msi` or `.exe` |
-| **Mac (Apple Silicon)** M1 / M2 / M3 / M4 | [Download for Mac](https://github.com/rayenking/nabooth-print-agent/releases/latest) — pick `Nabooth-Print-Agent-Mac-AppleSilicon.dmg` |
-| **Mac (Intel)** | Same [Releases](https://github.com/rayenking/nabooth-print-agent/releases/latest) page — pick `Nabooth-Print-Agent-Mac-Intel.dmg` |
-| **Linux** (optional) | Same Releases page — AppImage or `.deb` |
+### Mac / Linux
 
-> **No release yet?** Files appear after we publish a version (git tag). Until then, ask your admin or check **Actions → Build → Artifacts**.
+```bash
+curl -fsSL https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.sh | sh
+```
 
-## Install in 3 steps
+### Windows (PowerShell)
 
-1. Download the file for your computer from [Releases](https://github.com/rayenking/nabooth-print-agent/releases/latest)
-2. Open / install it  
-   - **Windows:** double-click the installer → Next → Next  
-   - **Mac:** open the `.dmg` → drag **Nabooth Print Agent** to Applications
-3. Open **Nabooth Print Agent**
+```powershell
+irm https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.ps1 | iex
+```
+
+The installer downloads the latest Go agent binary, starts it, and opens the control panel.
 
 ## First-time setup
 
-1. On the Nabooth dashboard → **Print Agent** (Pro) → create username / password
-2. In the desktop app → log in with those credentials
-3. Choose your USB / photo printer
-4. Leave the app **online** while the booth is running
-5. On the booth done screen → **Print with Nabooth**
+1. Open **http://127.0.0.1:17890**
+2. On the Nabooth dashboard → **Print Agent** (Pro) → create username / password
+3. In the agent UI → log in with those credentials
+4. Choose your USB / photo printer
+5. Leave the agent **running** while the booth is open
+6. On the booth done screen → **Print with Nabooth**
+7. When a job appears → click **Print…** (system print dialog)
 
-## If Windows or Mac says the app is unsafe
+## Manual download
 
-Unsigned builds show a warning. This is normal — not a virus.
+| Platform | Release asset |
+|----------|----------------|
+| Mac Apple Silicon | `nabooth-print-agent-darwin-arm64` |
+| Mac Intel | `nabooth-print-agent-darwin-amd64` |
+| Linux x64 | `nabooth-print-agent-linux-amd64` |
+| Windows x64 | `nabooth-print-agent-windows-amd64.exe` |
 
-- **Windows:** More info → **Run anyway**
-- **Mac:** System Settings → Privacy & Security → **Open Anyway**, or right-click the app → **Open**
+From [Releases](https://github.com/rayenking/nabooth-print-agent/releases/latest).
 
-Full signing docs for admins: [SIGNING.md](./SIGNING.md)
+```bash
+chmod +x nabooth-print-agent-darwin-arm64
+./nabooth-print-agent-darwin-arm64
+```
+
+## How it works
+
+- Single **Go binary** serves the UI on `127.0.0.1:17890`
+- Owns the cloud WebSocket to Nabooth (`https://nabooth.id`)
+- Browser is only a control panel (login, printer, jobs, log)
+- Jobs download to a temp folder; you print via the OS dialog (manual mode)
 
 ## Need help?
 
-- Keep the agent **online** on the printer PC
+- Keep the agent process running on the printer PC
 - Same Wi‑Fi as the booth is **not** required (cloud), but the PC needs internet
 - Username / password come from the dashboard **Print Agent** page
 - Still stuck? Contact your Nabooth admin
@@ -51,74 +66,83 @@ Full signing docs for admins: [SIGNING.md](./SIGNING.md)
 
 ## For developers
 
-Standalone repo (split from [nabooth](https://github.com/rayenking/nabooth)). API / dashboard stay in nabooth; this repo is **only** the desktop agent + installer CI.
+Standalone repo (split from [nabooth](https://github.com/rayenking/nabooth)). API / dashboard stay in nabooth; this repo is the printer-side agent.
 
-### Dev setup
+### Localhost agent (primary)
+
+```bash
+cd agent
+go run .
+# → http://127.0.0.1:17890
+```
+
+Flags:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `-port` | `17890` | localhost HTTP port |
+| `-api` | config / `https://nabooth.id` | API base override |
+| `-open` | `true` | open browser on start |
+| `-version` | | print version |
+
+Dev API (local nabooth API on `:5050`):
+
+```bash
+go run . -api http://localhost:5050
+# or open http://127.0.0.1:17890?dev=1
+```
+
+Config file:
+
+- macOS / Linux: `~/.config/nabooth-print-agent/config.json`
+- Windows: `%AppData%\nabooth-print-agent\config.json`
+
+### Layout
+
+```
+agent/                 # Go localhost agent (primary)
+  main.go
+  config.go
+  printers.go
+  print.go
+  cloud.go
+  server.go
+  open.go
+  web/                 # embedded UI (no build step)
+install.sh
+install.ps1
+.github/workflows/agent.yml
+src/ + src-tauri/      # legacy Tauri desktop app (kept for now)
+```
+
+### Agent CI
+
+Workflow: [`.github/workflows/agent.yml`](.github/workflows/agent.yml)
+
+| Trigger | Output |
+|---------|--------|
+| Push `main` (agent paths) / manual | Artifacts: `nabooth-print-agent-{os}-{arch}` |
+| Tag `v*` | Artifacts **+** attach binaries to GitHub Release |
+
+### Legacy Tauri app
+
+Still in-repo for transition. Prefer the Go agent for operators.
 
 ```bash
 pnpm install
 pnpm tauri dev
 ```
 
-Login with credentials from nabooth dashboard **Print Agent** (`/dashboard/print-agent`).
-
 | Mode | API |
 |------|-----|
-| **Release** (`pnpm tauri build`) | fixed `https://nabooth.id` (paths `/v1/...`, no URL field) |
-| **Dev** (`pnpm tauri dev`) | URL field shown; default `http://localhost:5050` |
+| **Release** (`pnpm tauri build`) | fixed `https://nabooth.id` |
+| **Dev** (`pnpm tauri dev`) | default `http://localhost:5050` |
 
-### Icons
+Tauri installer CI: [`.github/workflows/build.yml`](.github/workflows/build.yml). Signing notes: [SIGNING.md](./SIGNING.md).
 
-Source: `assets/naboothlogo.svg`
+### Protocol (must match nabooth API)
 
-```bash
-pnpm icons
-pnpm tauri build
-```
-
-### Build CI (installers)
-
-Workflow: [`.github/workflows/build.yml`](.github/workflows/build.yml) — **no k3s deploy**.
-
-| Trigger | How | Output |
-|---------|-----|--------|
-| Manual | Actions → **Build** → Run workflow | Artifacts only (30 days) |
-| Push to `main` | `git push origin main` | Artifacts only (30 days) |
-| Tag | `git tag v0.1.0 && git push origin v0.1.0` | Artifacts **+** [GitHub Release](https://github.com/rayenking/nabooth-print-agent/releases) with installers |
-
-Matrix: `darwin-arm64`, `darwin-x64`, `windows-x64`, `linux-x64`.
-
-Release assets are renamed for operators, e.g.:
-
-- `Nabooth-Print-Agent-Windows-x64.msi` / `.exe`
-- `Nabooth-Print-Agent-Mac-AppleSilicon.dmg`
-- `Nabooth-Print-Agent-Mac-Intel.dmg`
-
-### Code signing
-
-CI builds **unsigned** until GitHub secrets are set. Operators will see Gatekeeper / SmartScreen warnings on first open — expected.
-
-With cert secrets configured, macOS (Developer ID + notarize) and Windows (Authenticode) installers are signed in the same workflow.
-
-Full setup (what to buy, secret names, verify commands): **[SIGNING.md](./SIGNING.md)**.
-
-### Local build (current OS only)
-
-```bash
-pnpm tauri build
-# → src-tauri/target/release/bundle/
-```
-
-### Upload binaries to nabooth API (optional)
-
-```bash
-VERSION=0.1.0 NABOOTH_TOKEN=... API_URL=https://api.nabooth.id \
-  pnpm upload \
-  --darwin-arm64 path/to/*.dmg \
-  --windows-x64 path/to/*.msi
-```
-
-### OS print backends
-
-- **macOS / Linux:** CUPS `lp` / `lpstat`
-- **Windows:** PowerShell `Get-Printer` + `Start-Process -Verb Print`
+- Login: `POST {api}/v1/print-agent/login` → `{token, wsPath}`
+- WS: `{ws|wss}://host/v1/print-agent/ws?token=...`
+- Server job: `{type:"print_job", jobId, downloadUrl, ...}`
+- Client progress: `{type:"job_progress", jobId, state:"printing"|"done"|"failed", ...}`

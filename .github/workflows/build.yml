@@ -13,7 +13,8 @@
 #   macOS: APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
 #          APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
 #   Windows: WINDOWS_CERTIFICATE, WINDOWS_CERTIFICATE_PASSWORD
-# Missing secrets → unsigned build still succeeds (Gatekeeper/SmartScreen will warn).
+# Incomplete secrets → unsigned build still succeeds (Gatekeeper/SmartScreen will warn).
+# Complete secrets + real sign failure → job fails.
 name: Build
 
 on:
@@ -132,7 +133,8 @@ jobs:
         env:
           V: ${{ steps.ver.outputs.version }}
 
-      # --- macOS: import Developer ID cert when secrets are present ---
+      # --- macOS: import Developer ID cert only when the full sign set is present ---
+      # Partial/invalid secrets must NOT reach the Tauri env (that caused codesign failures).
       - name: Import Apple signing certificate
         if: startsWith(matrix.platform, 'darwin')
         id: apple_cert
@@ -140,23 +142,28 @@ jobs:
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           set -euo pipefail
-          if [ -z "${APPLE_CERTIFICATE:-}" ]; then
-            echo "APPLE_CERTIFICATE not set — macOS build will be UNSIGNED (Gatekeeper will warn)."
-            echo "imported=false" >> "$GITHUB_OUTPUT"
+          if [ -z "${APPLE_CERTIFICATE:-}" ] || [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ] || [ -z "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            echo "::warning::Apple signing secrets incomplete (need APPLE_CERTIFICATE + APPLE_CERTIFICATE_PASSWORD + APPLE_SIGNING_IDENTITY) — building UNSIGNED."
+            echo "signing=false" >> "$GITHUB_OUTPUT"
             exit 0
-          fi
-          if [ -z "${APPLE_CERTIFICATE_PASSWORD:-}" ]; then
-            echo "::error::APPLE_CERTIFICATE is set but APPLE_CERTIFICATE_PASSWORD is empty"
-            exit 1
           fi
 
           KEYCHAIN_PATH="${RUNNER_TEMP}/nabooth-signing.keychain-db"
           KEYCHAIN_PASSWORD="$(openssl rand -base64 32)"
           CERT_PATH="${RUNNER_TEMP}/apple-certificate.p12"
 
+          set +e
           echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+          decode_rc=$?
+          if [ $decode_rc -ne 0 ] || [ ! -s "$CERT_PATH" ]; then
+            echo "::warning::APPLE_CERTIFICATE base64 decode failed — building UNSIGNED."
+            rm -f "$CERT_PATH"
+            echo "signing=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
@@ -166,25 +173,41 @@ jobs:
             -P "$APPLE_CERTIFICATE_PASSWORD" \
             -A -t cert -f pkcs12 \
             -k "$KEYCHAIN_PATH"
+          import_rc=$?
 
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s -k "$KEYCHAIN_PASSWORD" \
-            "$KEYCHAIN_PATH"
-
-          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+          if [ $import_rc -eq 0 ]; then
+            security set-key-partition-list \
+              -S apple-tool:,apple:,codesign: \
+              -s -k "$KEYCHAIN_PASSWORD" \
+              "$KEYCHAIN_PATH"
+            partition_rc=$?
+          else
+            partition_rc=1
+          fi
+          set -e
 
           rm -f "$CERT_PATH"
 
+          if [ $import_rc -ne 0 ] || [ $partition_rc -ne 0 ]; then
+            echo "::warning::Apple cert import failed — building UNSIGNED."
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+            rm -f "$KEYCHAIN_PATH" 2>/dev/null || true
+            echo "signing=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
-          echo "imported=true" >> "$GITHUB_OUTPUT"
-          echo "Apple certificate imported into temporary keychain."
+          echo "signing=true" >> "$GITHUB_OUTPUT"
+          echo "Apple certificate imported into temporary keychain — signed macOS build enabled."
 
-      - name: Tauri build
+      # Signed path only when import succeeded. APPLE_* secrets never enter unsigned builds.
+      - name: Tauri build (signed macOS)
+        if: startsWith(matrix.platform, 'darwin') && steps.apple_cert.outputs.signing == 'true'
         shell: bash
         env:
-          # macOS sign + notarize (Tauri 2 reads these when present)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -193,17 +216,23 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          echo "macOS: signing with APPLE_SIGNING_IDENTITY (value not printed)."
+          if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
+            echo "macOS: notarization env complete — Tauri will notarize during build."
+          else
+            echo "macOS: notarization secrets incomplete (APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID) — signed without notarize."
+          fi
+          pnpm tauri build --target ${{ matrix.rust_target }}
+
+      - name: Tauri build (unsigned)
+        if: ${{ !(startsWith(matrix.platform, 'darwin') && steps.apple_cert.outputs.signing == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
           if [[ "${{ matrix.platform }}" == darwin-* ]]; then
-            if [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
-              echo "macOS: signing with APPLE_SIGNING_IDENTITY (value not printed)."
-              if [ -n "${APPLE_ID:-}" ] && [ -n "${APPLE_PASSWORD:-}" ] && [ -n "${APPLE_TEAM_ID:-}" ]; then
-                echo "macOS: notarization env present — Tauri will notarize during build."
-              else
-                echo "macOS: notarization secrets incomplete (APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID) — signed but may not notarize."
-              fi
-            else
-              echo "macOS: unsigned build (missing APPLE_CERTIFICATE and/or APPLE_SIGNING_IDENTITY)."
-            fi
+            echo "macOS: unsigned build (Apple signing not ready)."
+          else
+            echo "unsigned build (${{ matrix.platform }})"
           fi
           pnpm tauri build --target ${{ matrix.rust_target }}
 
@@ -271,13 +300,13 @@ jobs:
           set -euo pipefail
           OUT="${{ steps.pack.outputs.dir }}"
 
-          if [ -z "${WINDOWS_CERTIFICATE:-}" ]; then
+          if [ -z "${WINDOWS_CERTIFICATE:-}" ] && [ -z "${WINDOWS_CERTIFICATE_PASSWORD:-}" ]; then
             echo "WINDOWS_CERTIFICATE not set — Windows installers UNSIGNED (SmartScreen will warn)."
             exit 0
           fi
-          if [ -z "${WINDOWS_CERTIFICATE_PASSWORD:-}" ]; then
-            echo "::error::WINDOWS_CERTIFICATE is set but WINDOWS_CERTIFICATE_PASSWORD is empty"
-            exit 1
+          if [ -z "${WINDOWS_CERTIFICATE:-}" ] || [ -z "${WINDOWS_CERTIFICATE_PASSWORD:-}" ]; then
+            echo "::warning::Windows signing secrets incomplete (need WINDOWS_CERTIFICATE + WINDOWS_CERTIFICATE_PASSWORD) — leaving UNSIGNED."
+            exit 0
           fi
 
           PFX="${RUNNER_TEMP}/windows-certificate.pfx"

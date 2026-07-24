@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <title>Nabooth Print Agent</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <h1>Nabooth Print Agent</h1>
+          <p class="tag">Local control panel · printer PC</p>
+        </div>
+      </div>
+      <div class="status-block">
+        <span id="status-pill" class="pill off" role="status">Offline</span>
+        <p id="status-detail" class="detail">Not connected</p>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="card" id="printer-card">
+        <div class="card-head">
+          <h2>Printer</h2>
+          <button type="button" class="ghost tiny" id="btn-refresh-printers">Refresh</button>
+        </div>
+        <label>
+          Selected printer
+          <select id="printer"></select>
+        </label>
+        <p id="printer-hint" class="hint">Jobs use this printer’s OS defaults when you click Print.</p>
+      </section>
+
+      <section class="card" id="connect-card">
+        <div class="card-head">
+          <h2>Connect</h2>
+          <button type="button" class="ghost tiny hidden" id="btn-logout">Disconnect</button>
+        </div>
+        <div id="api-url-field" class="hidden">
+          <label>
+            API URL <span class="soft">(dev)</span>
+            <input id="api-url" type="url" autocomplete="off" spellcheck="false" placeholder="http://localhost:5050" />
+          </label>
+        </div>
+        <label>
+          Username
+          <input id="username" type="text" autocomplete="username" spellcheck="false" />
+        </label>
+        <label>
+          Password
+          <input id="password" type="password" autocomplete="current-password" />
+        </label>
+        <label class="check">
+          <input id="remember" type="checkbox" />
+          <span>Remember password on this PC</span>
+        </label>
+        <p id="login-error" class="error hidden" role="alert"></p>
+        <button type="button" id="btn-login" class="primary">Connect</button>
+        <p class="hint">Credentials from dashboard → Print Agent (Pro).</p>
+      </section>
+
+      <section class="card span-2" id="jobs-card">
+        <div class="card-head">
+          <h2>Jobs</h2>
+          <span class="soft" id="jobs-count">0</span>
+        </div>
+        <div id="jobs" class="jobs">
+          <p id="jobs-empty" class="empty">Waiting for booth prints…</p>
+        </div>
+      </section>
+
+      <section class="card span-2" id="log-card">
+        <div class="card-head">
+          <h2>Log</h2>
+          <button type="button" class="ghost tiny" id="btn-clear-log">Clear</button>
+        </div>
+        <pre id="log" class="log" aria-live="polite"></pre>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span id="version">—</span>
+      <span class="sep">·</span>
+      <span>http://127.0.0.1:17890</span>
+    </footer>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
