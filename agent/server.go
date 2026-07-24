@@ -34,6 +34,7 @@ func NewServer(agent *Agent, port int) *Server {
 	mux.HandleFunc("/api/logout", s.handleLogout)
 	mux.HandleFunc("/api/printer", s.handlePrinter)
 	mux.HandleFunc("/api/jobs", s.handleJobs)
+	mux.HandleFunc("/api/jobs/delete", s.handleJobsDelete) // before /api/jobs/ catch-all
 	mux.HandleFunc("/api/jobs/", s.handleJobAction)
 	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/update", s.handleUpdate)
@@ -160,8 +161,32 @@ func (s *Server) handleJobs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"jobs": s.agent.Jobs()})
 }
 
+func (s *Server) handleJobsDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var body struct {
+		IDs []string `json:"ids"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+	deleted, err := s.agent.DeleteJobs(body.IDs)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok":      true,
+		"deleted": deleted,
+		"jobs":    s.agent.Jobs(),
+	})
+}
+
 func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
-	// /api/jobs/{id}/print | /open | /file
+	// /api/jobs/{id}/print | /open | /file | /delete
 	p := strings.TrimPrefix(r.URL.Path, "/api/jobs/")
 	parts := strings.Split(strings.Trim(p, "/"), "/")
 	if len(parts) < 2 {
@@ -197,6 +222,19 @@ func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	case "delete":
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if err := s.agent.DeleteJob(id); err != nil {
+			writeErr(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":   true,
+			"jobs": s.agent.Jobs(),
+		})
 	case "file":
 		if r.Method != http.MethodGet {
 			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")

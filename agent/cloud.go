@@ -716,6 +716,82 @@ func (a *Agent) upsertJob(job Job) {
 	a.broadcast(map[string]any{"type": "job", "job": job})
 }
 
+func (a *Agent) broadcastJobs() {
+	a.broadcast(map[string]any{"type": "jobs", "jobs": a.Jobs()})
+}
+
+// DeleteJob removes one job from memory and best-effort deletes its local file.
+func (a *Agent) DeleteJob(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return fmt.Errorf("job not found")
+	}
+	a.mu.Lock()
+	var path string
+	found := false
+	for i, j := range a.jobs {
+		if j.ID == id {
+			path = j.Path
+			a.jobs = append(a.jobs[:i], a.jobs[i+1:]...)
+			found = true
+			break
+		}
+	}
+	a.mu.Unlock()
+	if !found {
+		return fmt.Errorf("job not found")
+	}
+	if path != "" {
+		_ = os.Remove(path) // best-effort; missing file is fine
+	}
+	a.Log(fmt.Sprintf("Job %s: deleted", shortID(id)))
+	a.broadcastJobs()
+	return nil
+}
+
+// DeleteJobs removes many jobs; returns how many were found and removed.
+func (a *Agent) DeleteJobs(ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	seen := make(map[string]struct{}, len(ids))
+	paths := make([]string, 0, len(ids))
+	deleted := 0
+
+	a.mu.Lock()
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		for i, j := range a.jobs {
+			if j.ID != id {
+				continue
+			}
+			if j.Path != "" {
+				paths = append(paths, j.Path)
+			}
+			a.jobs = append(a.jobs[:i], a.jobs[i+1:]...)
+			deleted++
+			break
+		}
+	}
+	a.mu.Unlock()
+
+	for _, path := range paths {
+		_ = os.Remove(path)
+	}
+	if deleted > 0 {
+		a.Log(fmt.Sprintf("Deleted %d job(s)", deleted))
+		a.broadcastJobs()
+	}
+	return deleted, nil
+}
+
 // PrintJob opens the system print dialog for a ready job and reports progress.
 func (a *Agent) PrintJob(id string) error {
 	job, ok := a.GetJob(id)

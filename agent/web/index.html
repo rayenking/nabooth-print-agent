@@ -86,7 +86,14 @@
       <section class="card span-2" id="jobs-card">
         <div class="card-head">
           <h2 data-i18n="jobs">Pekerjaan</h2>
-          <span class="soft" id="jobs-count">0</span>
+          <div class="jobs-head-actions">
+            <label class="check jobs-select-all hidden" id="jobs-select-all-wrap">
+              <input id="jobs-select-all" type="checkbox" />
+              <span data-i18n="selectAll">Pilih semua</span>
+            </label>
+            <button type="button" class="danger tiny hidden" id="btn-delete-selected" disabled data-i18n="deleteSelected">Hapus terpilih</button>
+            <span class="soft" id="jobs-count">0</span>
+          </div>
         </div>
         <div id="jobs" class="jobs">
           <p id="jobs-empty" class="empty" data-i18n="jobsEmpty">Menunggu cetakan dari booth…</p>

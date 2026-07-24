@@ -83,11 +83,20 @@
       stateFailed: "Gagal",
       print: "Cetak…",
       open: "Buka",
+      delete: "Hapus",
+      deleteSelected: "Hapus terpilih",
+      selectAll: "Pilih semua",
+      confirmDeleteOne: "Hapus job ini?",
+      confirmDeleteMany: "Hapus {n} job terpilih?",
+      deletedJob: "Job {id} dihapus",
+      deletedJobs: "{n} job dihapus",
+      noSelection: "Tidak ada job terpilih",
       stripAlt: "Strip",
       jobPrintDialog: "Pekerjaan {id}: membuka dialog Cetak sistem…",
       jobPrintCancelled: "Pekerjaan {id}: cetak dibatalkan",
       jobError: "Pekerjaan {id}: {msg}",
       openError: "Buka: {msg}",
+      deleteError: "Hapus: {msg}",
       updateCheckFailed: "Gagal memeriksa pembaruan.",
       updateCheckFailedDetail: "Pemeriksaan pembaruan gagal: {msg}",
       updateAvailableDetail: "Pembaruan tersedia: v{latest} (Anda punya v{current})",
@@ -184,11 +193,20 @@
       printersError: "Printers: {msg}",
       listPrintersError: "list printers: {msg}",
       printerSet: "Printer set: {name}",
-      setPrinterError: "set printer: {msg}",
-      none: "(none)",
-      stateReceiving: "Receiving…",
-      stateReady: "Ready to print",
-      statePrinting: "Printing…",
+      delete: "Delete",
+      deleteSelected: "Delete selected",
+      selectAll: "Select all",
+      confirmDeleteOne: "Delete this job?",
+      confirmDeleteMany: "Delete {n} selected jobs?",
+      deletedJob: "Deleted job {id}",
+      deletedJobs: "Deleted {n} jobs",
+      noSelection: "No jobs selected",
+      stripAlt: "Strip",
+      jobPrintDialog: "Job {id}: opening system Print dialog…",
+      jobPrintCancelled: "Job {id}: print cancelled",
+      jobError: "Job {id}: {msg}",
+      openError: "Open: {msg}",
+      deleteError: "DeletePrinting…",
       stateDone: "Done",
       stateFailed: "Failed",
       print: "Print…",
@@ -281,7 +299,8 @@
       $("printer-hint").textContent = t("printerHint");
     }
   }
-
+selected: new Set(),
+    
   const state = {
     online: false,
     connecting: false,
@@ -489,9 +508,38 @@
         return st || "—";
     }
   }
+pruneSelection() {
+    const ids = new Set(state.jobs.map((j) => j.id));
+    for (const id of [...state.selected]) {
+      if (!ids.has(id)) state.selected.delete(id);
+    }
+  }
+
+  function updateJobsToolbar() {
+    const hasJobs = state.jobs.length > 0;
+    const selectedCount = state.selected.size;
+    const wrap = $("jobs-select-all-wrap");
+    const selectAll = $("jobs-select-all");
+    const btn = $("btn-delete-selected");
+    wrap?.classList.toggle("hidden", !hasJobs);
+    btn?.classList.toggle("hidden", !hasJobs);
+    if (btn) {
+      btn.disabled = selectedCount === 0;
+      btn.textContent =
+        selectedCount > 0
+          ? `${t("deleteSelected")} (${selectedCount})`
+          : t("deleteSelected");
+    }
+    if (selectAll) {
+      selectAll.checked = hasJobs && selectedCount === state.jobs.length;
+      selectAll.indeterminate =
+        selectedCount > 0 && selectedCount < state.jobs.length;
+    }
+  }
 
   function renderJobs(jobs) {
     state.jobs = jobs || [];
+    pruneSelection();
     const root = $("jobs");
     const count = $("jobs-count");
     if (count) count.textContent = String(state.jobs.length);
@@ -503,11 +551,13 @@
       p.className = "empty";
       p.textContent = t("jobsEmpty");
       root.appendChild(p);
+      updateJobsToolbar();
       return;
     }
     for (const job of state.jobs) {
       root.appendChild(jobCard(job));
     }
+    updateJobsToolbar();
   }
 
   function upsertJob(job) {
@@ -523,6 +573,22 @@
     const card = document.createElement("div");
     card.className = "job";
     card.dataset.jobId = job.id;
+    if (state.selected.has(job.id)) card.classList.add("selected");
+
+    const checkWrap = document.createElement("label");
+    checkWrap.className = "job-check";
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = state.selected.has(job.id);
+    check.setAttribute("aria-label", t("selectAll"));
+    check.addEventListener("change", () => {
+      if (check.checked) state.selected.add(job.id);
+      else state.selected.delete(job.id);
+      card.classList.toggle("selected", check.checked);
+      updateJobsToolbar();
+    });
+    checkWrap.appendChild(check);
+    card.appendChild(checkWrap);
 
     if (job.path || job.state === "ready" || job.state === "done" || job.state === "printing") {
       const img = document.createElement("img");
@@ -558,9 +624,53 @@
     meta.appendChild(st);
     meta.appendChild(detail);
 
+    const actions = document.createElement("div");
+    actions.classdeleteJob(id) {
+    if (!window.confirm(t("confirmDeleteOne"))) return;
+    try {
+      const data = await api(`/api/jobs/${encodeURIComponent(id)}/delete`, {
+        method: "POST",
+      });
+      state.selected.delete(id);
+      if (Array.isArray(data.jobs)) renderJobs(data.jobs);
+      else {
+        state.jobs = state.jobs.filter((j) => j.id !== id);
+        renderJobs(state.jobs);
+      }
+      log(t("deletedJob", { id: shortId(id) }));
+    } catch (e) {
+      log(t("deleteError", { msg: e.message || e }));
+    }
+  }
+
+  async function deleteSelectedJobs() {
+    const ids = [...state.selected];
+    if (!ids.length) {
+      log(t("noSelection"));
+      return;
+    }
+    if (!window.confirm(t("confirmDeleteMany", { n: ids.length }))) return;
+    try {
+      const data = await api("/api/jobs/delete", {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      });
+      state.selected.clear();
+      if (Array.isArray(data.jobs)) renderJobs(data.jobs);
+      else {
+        const gone = new Set(ids);
+        state.jobs = state.jobs.filter((j) => !gone.has(j.id));
+        renderJobs(state.jobs);
+      }
+      const n = typeof data.deleted === "number" ? data.deleted : ids.length;
+      log(t("deletedJobs", { n }));
+    } catch (e) {
+      log(t("deleteError", { msg: e.message || e }));
+    }
+  }
+
+  async function Name = "job-actions";
     if (job.state === "ready" || job.state === "failed" || job.state === "done") {
-      const actions = document.createElement("div");
-      actions.className = "job-actions";
       const btnPrint = document.createElement("button");
       btnPrint.type = "button";
       btnPrint.className = "primary";
@@ -573,7 +683,14 @@
       btnOpen.addEventListener("click", () => void openJob(job.id));
       actions.appendChild(btnPrint);
       actions.appendChild(btnOpen);
-      meta.appendChild(actions);
+    }
+    const btnDelete = document.createElement("button");
+    btnDelete.type = "button";
+    btnDelete.className = "danger ghost";
+    btnDelete.textContent = t("delete");
+    btnDelete.addEventListener("click", () => void deleteJob(job.id));
+    actions.appendChild(btnDelete);
+    meta.appendChild(actions); meta.appendChild(actions);
     }
 
     card.appendChild(meta);
@@ -632,7 +749,11 @@
       setLoginError(e.message || t("loginFailed"));
       log(t("loginError", { msg: e.message || e }));
       if (btn) {
-        btn.disabled = false;
+        btn.disabled = fjobs") {
+        renderJobs(msg.jobs || []);
+        return;
+      }
+      if (msg.type === "alse;
         btn.textContent = t("connectBtn");
       }
     }
@@ -940,7 +1061,13 @@
 
     setInterval(() => void loadUpdate(false), 45 * 60 * 1000);
     window.addEventListener("focus", () => void loadUpdate(false));
-
+delete-selected")?.addEventListener("click", () => void deleteSelectedJobs());
+    $("jobs-select-all")?.addEventListener("change", (e) => {
+      const on = !!e.target.checked;
+      state.selected = on ? new Set(state.jobs.map((j) => j.id)) : new Set();
+      renderJobs(state.jobs);
+    });
+    $("btn-
     $("btn-login")?.addEventListener("click", () => void login());
     $("btn-logout")?.addEventListener("click", () => void logout());
     $("btn-refresh-printers")?.addEventListener("click", () => void loadPrinters());
