@@ -186,7 +186,7 @@ func (s *Server) handleJobsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
-	// /api/jobs/{id}/print | /open | /file | /delete
+	// /api/jobs/{id}/print | /complete | /open | /file | /delete
 	p := strings.TrimPrefix(r.URL.Path, "/api/jobs/")
 	parts := strings.Split(strings.Trim(p, "/"), "/")
 	if len(parts) < 2 {
@@ -203,6 +203,16 @@ func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := s.agent.PrintJob(id); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	case "complete":
+		if r.Method != http.MethodPost {
+			writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		if err := s.agent.CompleteJob(id); err != nil {
 			writeErr(w, http.StatusBadRequest, err.Error())
 			return
 		}

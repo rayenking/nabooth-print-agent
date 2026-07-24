@@ -82,6 +82,8 @@
       stateDone: "Selesai",
       stateFailed: "Gagal",
       print: "Cetak…",
+      printBrowser: "Cetak (browser)",
+      printSystem: "Dialog sistem",
       open: "Buka",
       delete: "Hapus",
       deleteSelected: "Hapus terpilih",
@@ -92,8 +94,10 @@
       deletedJobs: "{n} job dihapus",
       noSelection: "Tidak ada job terpilih",
       stripAlt: "Strip",
+      jobPrintBrowser: "Pekerjaan {id}: dialog cetak browser…",
       jobPrintDialog: "Pekerjaan {id}: membuka dialog Cetak sistem…",
       jobPrintCancelled: "Pekerjaan {id}: cetak dibatalkan",
+      popupBlocked: "Popup diblokir — izinkan popup untuk cetak browser",
       jobError: "Pekerjaan {id}: {msg}",
       openError: "Buka: {msg}",
       deleteError: "Hapus: {msg}",
@@ -201,6 +205,8 @@
       stateDone: "Done",
       stateFailed: "Failed",
       print: "Print…",
+      printBrowser: "Print (browser)",
+      printSystem: "System dialog",
       open: "Open",
       delete: "Delete",
       deleteSelected: "Delete selected",
@@ -211,8 +217,10 @@
       deletedJobs: "Deleted {n} jobs",
       noSelection: "No jobs selected",
       stripAlt: "Strip",
+      jobPrintBrowser: "Job {id}: browser print dialog…",
       jobPrintDialog: "Job {id}: opening system Print dialog…",
       jobPrintCancelled: "Job {id}: print cancelled",
+      popupBlocked: "Popup blocked — allow popups for browser print",
       jobError: "Job {id}: {msg}",
       openError: "Open: {msg}",
       deleteError: "Delete: {msg}",
@@ -628,17 +636,23 @@
     const actions = document.createElement("div");
     actions.className = "job-actions";
     if (job.state === "ready" || job.state === "failed" || job.state === "done") {
-      const btnPrint = document.createElement("button");
-      btnPrint.type = "button";
-      btnPrint.className = "primary";
-      btnPrint.textContent = t("print");
-      btnPrint.addEventListener("click", () => void printJob(job.id));
+      const btnPrintBrowser = document.createElement("button");
+      btnPrintBrowser.type = "button";
+      btnPrintBrowser.className = "primary";
+      btnPrintBrowser.textContent = t("printBrowser");
+      btnPrintBrowser.addEventListener("click", () => void printJobBrowser(job.id));
+      const btnPrintSystem = document.createElement("button");
+      btnPrintSystem.type = "button";
+      btnPrintSystem.className = "ghost";
+      btnPrintSystem.textContent = t("printSystem");
+      btnPrintSystem.addEventListener("click", () => void printJobSystem(job.id));
       const btnOpen = document.createElement("button");
       btnOpen.type = "button";
       btnOpen.className = "ghost";
       btnOpen.textContent = t("open");
       btnOpen.addEventListener("click", () => void openJob(job.id));
-      actions.appendChild(btnPrint);
+      actions.appendChild(btnPrintBrowser);
+      actions.appendChild(btnPrintSystem);
       actions.appendChild(btnOpen);
     }
     const btnDelete = document.createElement("button");
@@ -704,7 +718,35 @@
     return ph;
   }
 
-  async function printJob(id) {
+  function printJobBrowser(id) {
+    const url = `/api/jobs/${encodeURIComponent(id)}/file?t=${Date.now()}`;
+    const w = window.open("", "_blank", "noopener,noreferrer,width=800,height=1000");
+    if (!w) {
+      log(t("popupBlocked"));
+      return;
+    }
+    log(t("jobPrintBrowser", { id: shortId(id) }));
+    w.document.open();
+    w.document.write(`<!doctype html><html><head><title>Print</title>
+<style>
+  @page { margin: 0; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+</style></head><body>
+<img id="s" src="${url}" alt="strip"/>
+<script>
+  const img = document.getElementById('s');
+  function go(){ setTimeout(() => { window.focus(); window.print(); }, 50); }
+  if (img.complete) go(); else img.onload = go;
+  window.onafterprint = () => { window.close(); };
+</` + `script>
+</body></html>`);
+    w.document.close();
+    // Fire-and-forget: mark done so booth gets job_progress done.
+    void completeJob(id);
+  }
+
+  async function printJobSystem(id) {
     try {
       log(t("jobPrintDialog", { id: shortId(id) }));
       await api(`/api/jobs/${encodeURIComponent(id)}/print`, { method: "POST" });
@@ -712,6 +754,14 @@
       const msg = e.message || String(e);
       if (/cancel/i.test(msg)) log(t("jobPrintCancelled", { id: shortId(id) }));
       else log(t("jobError", { id: shortId(id), msg }));
+    }
+  }
+
+  async function completeJob(id) {
+    try {
+      await api(`/api/jobs/${encodeURIComponent(id)}/complete`, { method: "POST" });
+    } catch (e) {
+      log(t("jobError", { id: shortId(id), msg: e.message || e }));
     }
   }
 

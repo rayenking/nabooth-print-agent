@@ -792,6 +792,28 @@ func (a *Agent) DeleteJobs(ids []string) (int, error) {
 	return deleted, nil
 }
 
+// CompleteJob marks a job done and reports progress to cloud.
+// Used after browser print and after successful system print.
+func (a *Agent) CompleteJob(id string) error {
+	job, ok := a.GetJob(id)
+	if !ok {
+		return fmt.Errorf("job not found")
+	}
+	if job.State != JobDone {
+		job.State = JobDone
+		job.Error = ""
+		a.upsertJob(job)
+	}
+	a.Log(fmt.Sprintf("Job %s: printed", shortID(id)))
+	_ = a.sendJSON(map[string]any{
+		"type":        "job_progress",
+		"jobId":       id,
+		"state":       "done",
+		"printerName": job.Printer,
+	})
+	return nil
+}
+
 // PrintJob opens the system print dialog for a ready job and reports progress.
 func (a *Agent) PrintJob(id string) error {
 	job, ok := a.GetJob(id)
@@ -829,16 +851,7 @@ func (a *Agent) PrintJob(id string) error {
 		})
 		return err
 	}
-	job.State = JobDone
-	a.upsertJob(job)
-	a.Log(fmt.Sprintf("Job %s: printed", shortID(id)))
-	_ = a.sendJSON(map[string]any{
-		"type":        "job_progress",
-		"jobId":       id,
-		"state":       "done",
-		"printerName": job.Printer,
-	})
-	return nil
+	return a.CompleteJob(id)
 }
 
 func shortID(id string) string {
