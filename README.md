@@ -11,16 +11,16 @@ Control panel: **http://127.0.0.1:17890** (localhost only)
 ### Mac / Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.sh | sh
+curl -fsSL https://github.com/rayenking/nabooth-print-agent/raw/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.ps1 | iex
+irm https://github.com/rayenking/nabooth-print-agent/raw/main/install.ps1 | iex
 ```
 
-The installer downloads the latest Go agent binary from GitHub Releases, starts it, and opens the control panel.
+The installer downloads the latest Go agent binary from GitHub Releases, starts it, and opens the control panel. Re-running the installer upgrades and restarts the agent.
 
 Release assets are produced by [`.github/workflows/agent.yml`](.github/workflows/agent.yml) on tags matching `v*`.
 

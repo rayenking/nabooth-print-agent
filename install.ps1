@@ -1,5 +1,6 @@
-# Nabooth Print Agent — one-line install (Windows)
-# irm https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.ps1 | iex
+# Nabooth Print Agent — one-line install / upgrade (Windows)
+# irm https://github.com/rayenking/nabooth-print-agent/raw/main/install.ps1 | iex
+# Re-running stops any old agent, replaces the binary, then starts the new one.
 $ErrorActionPreference = "Stop"
 
 $Repo = "rayenking/nabooth-print-agent"
@@ -44,6 +45,19 @@ Build from source (needs Go 1.22+):
 Write-Host "Downloading $downloadUrl"
 $tmp = Join-Path $env:TEMP $Asset
 Invoke-WebRequest -Uri $downloadUrl -OutFile $tmp -UseBasicParsing
+
+# Stop any running agent so the new binary actually serves after upgrade.
+Write-Host "Stopping any running Print Agent…"
+Get-Process -Name "nabooth-print-agent" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-CimInstance Win32_Process -Filter "Name = 'nabooth-print-agent.exe'" -ErrorAction SilentlyContinue | ForEach-Object {
+  Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+}
+# Also stop anything whose path matches the install binary.
+Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+  Where-Object { $_.ExecutablePath -and ($_.ExecutablePath -ieq $BinPath) } |
+  ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Start-Sleep -Seconds 1
+
 Copy-Item -Force $tmp $BinPath
 Write-Host "Installed → $BinPath"
 
@@ -60,7 +74,8 @@ if ($env:NABOOTH_NO_STARTUP -ne "1") {
   Write-Host "Startup shortcut: $lnkPath"
 }
 
-# Start if not healthy
+# Always ensure the new agent is up (old process was stopped above).
+Start-Sleep -Seconds 1
 $healthy = $false
 try {
   $h = Invoke-WebRequest -Uri "$UI/api/health" -UseBasicParsing -TimeoutSec 2

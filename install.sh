@@ -1,6 +1,7 @@
 #!/bin/sh
-# Nabooth Print Agent — one-line install (Mac / Linux)
-# curl -fsSL https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.sh | sh
+# Nabooth Print Agent — one-line install / upgrade (Mac / Linux)
+# curl -fsSL https://github.com/rayenking/nabooth-print-agent/raw/main/install.sh | sh
+# Re-running stops any old agent, replaces the binary, then starts the new one.
 set -eu
 
 REPO="rayenking/nabooth-print-agent"
@@ -104,6 +105,22 @@ else
   wget -O "${tmp}/${asset}" "$download_url" || die "download failed"
 fi
 
+# Stop any running agent so the new binary actually serves after upgrade.
+info "Stopping any running Print Agent…"
+if [ "$goos" = "darwin" ]; then
+  PLIST="$HOME/Library/LaunchAgents/com.nabooth.print-agent.plist"
+  launchctl bootout "gui/$(id -u)/com.nabooth.print-agent" 2>/dev/null || true
+  launchctl unload "$PLIST" 2>/dev/null || true
+fi
+pkill -f nabooth-print-agent 2>/dev/null || true
+# Also kill by exact install path when possible (covers renamed/copied binaries).
+if command -v pgrep >/dev/null 2>&1; then
+  pgrep -f "$BIN_PATH" 2>/dev/null | while read -r pid; do
+    kill "$pid" 2>/dev/null || true
+  done || true
+fi
+sleep 0.5
+
 install -m 755 "${tmp}/${asset}" "$BIN_PATH"
 info "Installed → ${BIN_PATH}"
 
@@ -135,13 +152,21 @@ if [ "$goos" = "darwin" ] && [ "${NABOOTH_NO_LAUNCHAGENT:-}" != "1" ]; then
 </dict>
 </plist>
 PLIST
+  launchctl bootout "gui/$(id -u)/com.nabooth.print-agent" 2>/dev/null || true
   launchctl unload "$PLIST" 2>/dev/null || true
-  launchctl load "$PLIST" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$PLIST" 2>/dev/null || launchctl load "$PLIST" 2>/dev/null || true
   info "LaunchAgent: $PLIST"
 fi
 
-# Start agent (if not already listening)
-if ! curl -fsS "${UI}/api/health" >/dev/null 2>&1; then
+# Always ensure the new agent is up (old process was stopped above).
+sleep 1
+health_ok=0
+if command -v curl >/dev/null 2>&1; then
+  if curl -fsS --max-time 2 "${UI}/api/health" >/dev/null 2>&1; then
+    health_ok=1
+  fi
+fi
+if [ "$health_ok" -ne 1 ]; then
   info "Starting agent…"
   nohup "$BIN_PATH" -open=true >/tmp/nabooth-print-agent.log 2>&1 &
   sleep 1
