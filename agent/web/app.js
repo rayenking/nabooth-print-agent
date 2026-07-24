@@ -81,9 +81,9 @@
       statePrinting: "Mencetak…",
       stateDone: "Selesai",
       stateFailed: "Gagal",
-      print: "Cetak…",
-      printBrowser: "Cetak (browser)",
-      printSystem: "Dialog sistem",
+      print: "Cetak",
+      printWithBrowser: "Cetak lewat browser",
+      printWithSystem: "Cetak lewat sistem",
       open: "Buka",
       delete: "Hapus",
       deleteSelected: "Hapus terpilih",
@@ -204,9 +204,9 @@
       statePrinting: "Printing…",
       stateDone: "Done",
       stateFailed: "Failed",
-      print: "Print…",
-      printBrowser: "Print (browser)",
-      printSystem: "System dialog",
+      print: "Print",
+      printWithBrowser: "Print with browser",
+      printWithSystem: "Print with system",
       open: "Open",
       delete: "Delete",
       deleteSelected: "Delete selected",
@@ -636,23 +636,12 @@
     const actions = document.createElement("div");
     actions.className = "job-actions";
     if (job.state === "ready" || job.state === "failed" || job.state === "done") {
-      const btnPrintBrowser = document.createElement("button");
-      btnPrintBrowser.type = "button";
-      btnPrintBrowser.className = "primary";
-      btnPrintBrowser.textContent = t("printBrowser");
-      btnPrintBrowser.addEventListener("click", () => void printJobBrowser(job.id));
-      const btnPrintSystem = document.createElement("button");
-      btnPrintSystem.type = "button";
-      btnPrintSystem.className = "ghost";
-      btnPrintSystem.textContent = t("printSystem");
-      btnPrintSystem.addEventListener("click", () => void printJobSystem(job.id));
+      actions.appendChild(buildPrintMenu(job.id));
       const btnOpen = document.createElement("button");
       btnOpen.type = "button";
       btnOpen.className = "ghost";
       btnOpen.textContent = t("open");
       btnOpen.addEventListener("click", () => void openJob(job.id));
-      actions.appendChild(btnPrintBrowser);
-      actions.appendChild(btnPrintSystem);
       actions.appendChild(btnOpen);
     }
     const btnDelete = document.createElement("button");
@@ -718,30 +707,123 @@
     return ph;
   }
 
+  function closeAllPrintMenus() {
+    document.querySelectorAll(".print-menu-panel").forEach((panel) => {
+      panel.classList.add("hidden");
+    });
+  }
+
+  function buildPrintMenu(jobId) {
+    const wrap = document.createElement("div");
+    wrap.className = "print-menu";
+
+    const btnMain = document.createElement("button");
+    btnMain.type = "button";
+    btnMain.className = "primary print-menu-main";
+    btnMain.textContent = `${t("print")} ▾`;
+
+    const panel = document.createElement("div");
+    panel.className = "print-menu-panel hidden";
+
+    const btnBrowser = document.createElement("button");
+    btnBrowser.type = "button";
+    btnBrowser.className = "print-menu-item";
+    btnBrowser.dataset.mode = "browser";
+    btnBrowser.textContent = t("printWithBrowser");
+    btnBrowser.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeAllPrintMenus();
+      void printJobBrowser(jobId);
+    });
+
+    const btnSystem = document.createElement("button");
+    btnSystem.type = "button";
+    btnSystem.className = "print-menu-item";
+    btnSystem.dataset.mode = "system";
+    btnSystem.textContent = t("printWithSystem");
+    btnSystem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      closeAllPrintMenus();
+      void printJobSystem(jobId);
+    });
+
+    panel.appendChild(btnBrowser);
+    panel.appendChild(btnSystem);
+
+    btnMain.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = !panel.classList.contains("hidden");
+      closeAllPrintMenus();
+      if (!open) panel.classList.remove("hidden");
+    });
+
+    wrap.appendChild(btnMain);
+    wrap.appendChild(panel);
+    return wrap;
+  }
+
   function printJobBrowser(id) {
-    const url = `/api/jobs/${encodeURIComponent(id)}/file?t=${Date.now()}`;
-    const w = window.open("", "_blank", "noopener,noreferrer,width=800,height=1000");
-    if (!w) {
-      log(t("popupBlocked"));
+    const absUrl = new URL(
+      `/api/jobs/${encodeURIComponent(id)}/file?t=${Date.now()}`,
+      window.location.origin
+    ).href;
+
+    const old = document.getElementById("print-frame");
+    if (old) old.remove();
+
+    const iframe = document.createElement("iframe");
+    iframe.id = "print-frame";
+    iframe.style.cssText =
+      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      // Rare: contentDocument unavailable — open absolute URL and print after load.
+      const w = window.open(absUrl, "_blank", "noopener,noreferrer,width=800,height=1000");
+      if (!w) {
+        log(t("popupBlocked"));
+        return;
+      }
+      log(t("jobPrintBrowser", { id: shortId(id) }));
+      const tryPrint = () => {
+        try {
+          w.focus();
+          w.print();
+        } catch {
+          /* ignore */
+        }
+      };
+      if (w.document?.readyState === "complete") {
+        setTimeout(tryPrint, 100);
+      } else {
+        w.addEventListener("load", () => setTimeout(tryPrint, 100));
+      }
+      void completeJob(id);
       return;
     }
+
     log(t("jobPrintBrowser", { id: shortId(id) }));
-    w.document.open();
-    w.document.write(`<!doctype html><html><head><title>Print</title>
+    doc.open();
+    doc.write(`<!doctype html><html><head><title>Print</title>
 <style>
-  @page { margin: 0; }
+  @page { margin: 0; size: auto; }
   html, body { margin: 0; padding: 0; background: #fff; }
-  img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  img { display:block; max-width:100%; height:auto; margin:0 auto; }
 </style></head><body>
-<img id="s" src="${url}" alt="strip"/>
+<img id="s" src="${absUrl}" alt="strip"/>
 <script>
-  const img = document.getElementById('s');
-  function go(){ setTimeout(() => { window.focus(); window.print(); }, 50); }
-  if (img.complete) go(); else img.onload = go;
-  window.onafterprint = () => { window.close(); };
-</` + `script>
-</body></html>`);
-    w.document.close();
+  const img = document.getElementById("s");
+  function go() {
+    setTimeout(function () {
+      try { window.focus(); window.print(); } catch (e) {}
+    }, 100);
+  }
+  img.onload = go;
+  img.onerror = function () { document.body.innerHTML = "<p>Failed to load image</p>"; };
+  if (img.complete && img.naturalWidth) go();
+</` + `script></body></html>`);
+    doc.close();
     // Fire-and-forget: mark done so booth gets job_progress done.
     void completeJob(id);
   }
@@ -1130,8 +1212,14 @@
     document.querySelectorAll("[data-close]").forEach((el) => {
       el.addEventListener("click", () => closeModal(el.getAttribute("data-close")));
     });
+    document.addEventListener("click", (e) => {
+      if (!(e.target instanceof Element) || !e.target.closest(".print-menu")) {
+        closeAllPrintMenus();
+      }
+    });
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        closeAllPrintMenus();
         closeModal("update");
       }
     });

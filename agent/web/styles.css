@@ -501,6 +501,51 @@ button.tiny {
   font-size: 0.75rem;
 }
 
+.print-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.print-menu-main {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+}
+
+.print-menu-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 180px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #f9c6df;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(190, 24, 93, 0.14);
+}
+
+.print-menu-panel.hidden {
+  display: none;
+}
+
+.print-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--rose-deep);
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.print-menu-item:hover:not(:disabled) {
+  background: #fce7f3;
+}
+
 .log {
   margin: 0;
   min-height: 88px;
