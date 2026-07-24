@@ -38,6 +38,7 @@ func NewServer(agent *Agent, port int) *Server {
 	mux.HandleFunc("/api/events", s.handleEvents)
 	mux.HandleFunc("/api/update", s.handleUpdate)
 	mux.HandleFunc("/api/autostart", s.handleAutostart)
+	mux.HandleFunc("/api/uninstall", s.handleUninstall)
 	mux.HandleFunc("/", s.handleStatic)
 
 	s.server = &http.Server{
@@ -226,22 +227,29 @@ func (s *Server) handleJobAction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	force := r.URL.Query().Get("force") == "1"
+	writeJSON(w, http.StatusOK, fetchLatestRelease(force))
+}
+
+func (s *Server) handleUninstall(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		force := r.URL.Query().Get("force") == "1"
-		writeJSON(w, http.StatusOK, fetchLatestRelease(force))
+		writeJSON(w, http.StatusOK, uninstallInfo())
 	case http.MethodPost:
-		s.agent.Log("Applying update…")
-		if err := applyUpdate(func(msg string) { s.agent.Log(msg) }); err != nil {
-			s.agent.Log("Update failed: " + err.Error())
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "restarting": true})
+		s.agent.Log("Uninstall requested…")
+		res := runUninstall()
+		s.agent.Log("Uninstall: " + res.Detail)
+		writeJSON(w, http.StatusOK, res)
+		scheduleExit()
 	default:
 		writeErr(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
+
 
 func (s *Server) handleAutostart(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {

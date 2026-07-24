@@ -30,7 +30,7 @@
       </div>
       <div class="update-banner-actions">
         <a id="update-release-link" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Notes</a>
-        <button type="button" class="primary tiny" id="btn-update-now">Update now</button>
+        <button type="button" class="primary tiny" id="btn-update-now">How to update</button>
       </div>
     </div>
 
@@ -105,8 +105,17 @@
           <h3 class="subhead">Software update</h3>
           <p id="update-detail" class="detail-line">Checking for updates…</p>
           <div class="row-actions">
-            <button type="button" class="primary hidden" id="btn-update">Update now</button>
+            <button type="button" class="primary hidden" id="btn-update">How to update</button>
+            <button type="button" class="ghost tiny" id="btn-check-update">Check again</button>
             <a id="update-notes" class="ghost tiny linkish hidden" href="#" target="_blank" rel="noopener">Release notes</a>
+          </div>
+        </div>
+        <div class="bg-block">
+          <h3 class="subhead">Uninstall</h3>
+          <p class="hint">Removes login autostart, local config, and stops this agent. Binary delete is best-effort.</p>
+          <p id="uninstall-detail" class="detail-line">—</p>
+          <div class="row-actions">
+            <button type="button" class="danger" id="btn-uninstall">Uninstall…</button>
           </div>
         </div>
       </section>
@@ -126,6 +135,57 @@
       <span>http://127.0.0.1:17890</span>
     </footer>
   </div>
+
+  <div id="modal-update" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-update-title">
+    <div class="modal-backdrop" data-close="update"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="modal-update-title">Update Print Agent</h2>
+        <button type="button" class="ghost tiny" data-close="update" aria-label="Close">Close</button>
+      </div>
+      <p id="modal-update-summary" class="hint">A newer version is available.</p>
+      <ol class="modal-steps">
+        <li>Download the binary for this PC (or re-run the install command).</li>
+        <li>Stop this agent if needed, then replace/run the new binary.</li>
+        <li>Open <code>http://127.0.0.1:17890</code> again.</li>
+      </ol>
+      <label>
+        Install command
+        <div class="copy-row">
+          <input id="modal-update-cmd" type="text" readonly spellcheck="false" />
+          <button type="button" class="ghost tiny" id="btn-copy-install">Copy</button>
+        </div>
+      </label>
+      <div class="row-actions">
+        <a id="modal-update-download" class="primary linkish-btn" href="#" target="_blank" rel="noopener">Download binary</a>
+        <a id="modal-update-release" class="ghost tiny linkish" href="#" target="_blank" rel="noopener">Release notes</a>
+      </div>
+      <p class="hint">Self-update is disabled. Updates are manual on purpose.</p>
+    </div>
+  </div>
+
+  <div id="modal-uninstall" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-uninstall-title">
+    <div class="modal-backdrop" data-close="uninstall"></div>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2 id="modal-uninstall-title">Uninstall Print Agent?</h2>
+        <button type="button" class="ghost tiny" data-close="uninstall" aria-label="Close">Close</button>
+      </div>
+      <p class="hint">This will:</p>
+      <ul class="modal-list">
+        <li>Remove login / startup autostart</li>
+        <li>Delete local config (saved login, jobs cache)</li>
+        <li>Stop the agent process</li>
+        <li>Try to delete the binary (best-effort)</li>
+      </ul>
+      <p id="modal-uninstall-paths" class="detail-line">—</p>
+      <div class="row-actions">
+        <button type="button" class="danger" id="btn-uninstall-confirm">Yes, uninstall</button>
+        <button type="button" class="ghost" data-close="uninstall">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

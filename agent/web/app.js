@@ -10,7 +10,8 @@
     jobs: [],
     update: null,
     autostart: null,
-    updating: false,
+    uninstall: null,
+    uninstalling: false,
   };
 
   function log(msg) {
@@ -78,7 +79,6 @@
     }
 
     if (Array.isArray(s.logs)) {
-      // only seed empty log from server snapshot
       const el = $("log");
       if (el && !el.textContent && s.logs.length) {
         el.textContent = s.logs
@@ -107,7 +107,10 @@
 
   async function api(path, opts = {}) {
     const res = await fetch(path, {
-      headers: { Accept: "application/json", ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+      headers: {
+        Accept: "application/json",
+        ...(opts.body ? { "Content-Type": "application/json" } : {}),
+      },
       ...opts,
     });
     const text = await res.text();
@@ -386,6 +389,30 @@
     };
     es.onerror = () => {
       // browser auto-reconnects
+    };
+  }
+
+  function isWindowsUA() {
+    return /Win/i.test(navigator.platform || "") || /Windows/i.test(navigator.userAgent || "");
+  }
+
+  function installCommand() {
+    if (isWindowsUA()) {
+      return "irm https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.ps1 | iex";
+    }
+    return "curl -fsSL https://raw.githubusercontent.com/rayenking/nabooth-print-agent/main/install.sh | sh";
+  }
+
+  function openModal(name) {
+    const el = $(`modal-${name}`);
+    if (el) el.classList.remove("hidden");
+  }
+
+  function closeModal(name) {
+    const el = $(`modal-${name}`);
+    if (el) el.classList.add("hidden");
+  }
+
   function renderUpdate(info) {
     state.update = info || null;
     const banner = $("update-banner");
@@ -421,12 +448,13 @@
       banner?.classList.remove("hidden");
       btn?.classList.remove("hidden");
       btnNow?.classList.remove("hidden");
-      if (btn) btn.disabled = !!state.updating;
-      if (btnNow) btnNow.disabled = !!state.updating;
-      if (btn) btn.textContent = state.updating ? "Updating…" : "Update now";
-      if (btnNow) btnNow.textContent = state.updating ? "Updating…" : "Update now";
+      if (btn) btn.textContent = "How to update";
+      if (btnNow) btnNow.textContent = "How to update";
     } else {
-      if (detail) detail.textContent = `Up to date · v${cur}${latest && latest !== "—" ? ` (latest v${latest})` : ""}`;
+      if (detail)
+        detail.textContent = `Up to date · v${cur}${
+          latest && latest !== "—" ? ` (latest v${latest})` : ""
+        }`;
       banner?.classList.add("hidden");
       btn?.classList.add("hidden");
     }
@@ -441,6 +469,48 @@
         el.classList.add("hidden");
       }
     }
+  }
+
+  function fillUpdateModal(info) {
+    const summary = $("modal-update-summary");
+    const cmd = $("modal-update-cmd");
+    const dl = $("modal-update-download");
+    const rel = $("modal-update-release");
+    const cur = (info && info.current) || "dev";
+    const latest = (info && info.latest) || "—";
+    if (summary) {
+      summary.textContent =
+        info && info.updateAvailable
+          ? `v${latest} is available (you have v${cur}). Download the binary or re-run the install command.`
+          : `Current v${cur}. You can still reinstall the latest release manually.`;
+    }
+    if (cmd) cmd.value = installCommand();
+    if (dl) {
+      const href = (info && info.downloadUrl) || "";
+      if (href) {
+        dl.href = href;
+        dl.classList.remove("disabled");
+        dl.setAttribute("aria-disabled", "false");
+        dl.textContent = info.assetName ? `Download ${info.assetName}` : "Download binary";
+      } else {
+        dl.href =
+          (info && info.releaseUrl) ||
+          "https://github.com/rayenking/nabooth-print-agent/releases/latest";
+        dl.classList.remove("disabled");
+        dl.setAttribute("aria-disabled", "false");
+        dl.textContent = "Open releases";
+      }
+    }
+    if (rel) {
+      rel.href =
+        (info && info.releaseUrl) ||
+        "https://github.com/rayenking/nabooth-print-agent/releases/latest";
+    }
+  }
+
+  function showUpdateModal() {
+    fillUpdateModal(state.update);
+    openModal("update");
   }
 
   function renderAutostart(info) {
@@ -480,6 +550,24 @@
     }
   }
 
+  function renderUninstall(info) {
+    state.uninstall = info || null;
+    const detail = $("uninstall-detail");
+    const paths = $("modal-uninstall-paths");
+    if (!info) {
+      if (detail) detail.textContent = "Could not read uninstall info.";
+      return;
+    }
+    const bits = [];
+    if (info.configDir) bits.push(`config: ${info.configDir}`);
+    if (info.binaryPath) bits.push(`binary: ${info.binaryPath}`);
+    if (info.autostartEnabled) bits.push("autostart: on");
+    if (info.detail) bits.push(info.detail);
+    const text = bits.join(" · ") || "Ready";
+    if (detail) detail.textContent = text;
+    if (paths) paths.textContent = text;
+  }
+
   async function loadUpdate(force = false) {
     try {
       const q = force ? "?force=1" : "";
@@ -501,45 +589,13 @@
     }
   }
 
-  async function applyUpdateNow() {
-    if (state.updating) return;
-    state.updating = true;
-    renderUpdate(state.update);
-    log("Downloading and applying update…");
+  async function loadUninstall() {
     try {
-      const data = await api("/api/update", { method: "POST" });
-      if (data && data.restarting) {
-        log("Update applied — agent restarting. Reconnecting…");
-        // Poll health until new process is up
-        let tries = 0;
-        const tick = async () => {
-          tries += 1;
-          try {
-            const h = await api("/api/health");
-            log(`Agent back online · v${h.version || "?"}`);
-            state.updating = false;
-            await loadUpdate(true);
-            connectEvents();
-            return;
-          } catch {
-            if (tries < 40) setTimeout(() => void tick(), 500);
-            else {
-              state.updating = false;
-              log("Agent did not come back — start it again if needed.");
-              renderUpdate(state.update);
-            }
-          }
-        };
-        setTimeout(() => void tick(), 800);
-      } else {
-        state.updating = false;
-        log("Update finished");
-        await loadUpdate(true);
-      }
+      const info = await api("/api/uninstall");
+      renderUninstall(info);
     } catch (e) {
-      state.updating = false;
-      log(`Update failed: ${e.message || e}`);
-      renderUpdate(state.update);
+      renderUninstall(null);
+      log(`uninstall info: ${e.message || e}`);
     }
   }
 
@@ -566,6 +622,48 @@
     }
   }
 
+  async function confirmUninstall() {
+    if (state.uninstalling) return;
+    state.uninstalling = true;
+    const btn = $("btn-uninstall-confirm");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Uninstalling…";
+    }
+    log("Uninstalling…");
+    try {
+      const res = await api("/api/uninstall", { method: "POST" });
+      log(res.detail || "Uninstall finished — agent stopping");
+      closeModal("uninstall");
+      setStatus("off", "Uninstalled");
+      if ($("uninstall-detail")) {
+        $("uninstall-detail").textContent = res.detail || "Agent stopped";
+      }
+    } catch (e) {
+      log(`Uninstall failed: ${e.message || e}`);
+      state.uninstalling = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Yes, uninstall";
+      }
+    }
+  }
+
+  async function copyInstallCmd() {
+    const input = $("modal-update-cmd");
+    const text = input?.value || installCommand();
+    try {
+      await navigator.clipboard.writeText(text);
+      log("Install command copied");
+    } catch {
+      if (input) {
+        input.focus();
+        input.select();
+      }
+      log("Copy failed — select the command and copy manually");
+    }
+  }
+
   async function boot() {
     try {
       const health = await api("/api/health");
@@ -586,10 +684,9 @@
       /* ignore */
     }
     await loadPrinters();
-    await Promise.all([loadUpdate(false), loadAutostart()]);
+    await Promise.all([loadUpdate(false), loadAutostart(), loadUninstall()]);
     connectEvents();
 
-    // Recheck updates every 45 min and on window focus
     setInterval(() => void loadUpdate(false), 45 * 60 * 1000);
     window.addEventListener("focus", () => void loadUpdate(false));
 
@@ -599,11 +696,23 @@
     $("btn-clear-log")?.addEventListener("click", () => {
       if ($("log")) $("log").textContent = "";
     });
-    $("btn-update")?.addEventListener("click", () => void applyUpdateNow());
-    $("btn-update-now")?.addEventListener("click", () => void applyUpdateNow());
-    $("btn-autostart")?.addEventListener("click", () => void toggleAutostart()("btn-refresh-printers")?.addEventListener("click", () => void loadPrinters());
-    $("btn-clear-log")?.addEventListener("click", () => {
-      if ($("log")) $("log").textContent = "";
+    $("btn-update")?.addEventListener("click", () => showUpdateModal());
+    $("btn-update-now")?.addEventListener("click", () => showUpdateModal());
+    $("btn-check-update")?.addEventListener("click", () => void loadUpdate(true));
+    $("btn-autostart")?.addEventListener("click", () => void toggleAutostart());
+    $("btn-uninstall")?.addEventListener("click", () => {
+      void loadUninstall().then(() => openModal("uninstall"));
+    });
+    $("btn-uninstall-confirm")?.addEventListener("click", () => void confirmUninstall());
+    $("btn-copy-install")?.addEventListener("click", () => void copyInstallCmd());
+    document.querySelectorAll("[data-close]").forEach((el) => {
+      el.addEventListener("click", () => closeModal(el.getAttribute("data-close")));
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeModal("update");
+        closeModal("uninstall");
+      }
     });
     $("printer")?.addEventListener("change", (e) => {
       void savePrinter(e.target.value, true);
